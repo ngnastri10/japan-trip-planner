@@ -64,7 +64,7 @@ h1, h2 { margin: 0; }
 
 /* ---------- Layout / views ---------- */
 main { height: calc(100% - 57px); }
-.view { display: none; height: 100%; flex-direction: column; }
+.view { display: none; height: 100%; flex-direction: column; position: relative; }
 .view.active { display: flex; }
 
 /* ---------- Map view ---------- */
