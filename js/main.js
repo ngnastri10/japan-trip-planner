@@ -123,16 +123,40 @@ function initTabs() {
 // ---------------------------------------------------------------------------
 let map;
 let markerLayer;
+let previewMarker = null; // temporary pin from search — not saved until confirmed
+
+// Drops (or replaces) a plain, unstyled pin at a searched location. Nothing
+// is saved yet — clicking the pin reveals an "Add to trip" button, which is
+// what actually opens the real add-place form.
+function showPreviewPin(lat, lng, name) {
+  if (previewMarker) map.removeLayer(previewMarker);
+
+  const popupNode = document.createElement("div");
+  popupNode.innerHTML = `
+    <div class="popup-title">${escapeHtml(name)}</div>
+    <div class="popup-actions" style="margin-top:8px;">
+      <button type="button" class="btn-primary">+ Add to trip</button>
+    </div>`;
+  popupNode.querySelector("button").addEventListener("click", () => {
+    map.closePopup();
+    openPlaceModal({ mode: "add", lat, lng, name });
+  });
+
+  previewMarker = L.marker([lat, lng]).addTo(map).bindPopup(popupNode);
+}
 
 function initMap() {
   map = L.map("map").setView([36.2048, 138.2529], 5.4); // centered on Japan
-  // Esri's public World Street Map basemap renders English/Latin-script
-  // labels globally, unlike the default OSM tile style which always renders
-  // local-script (Japanese) labels. Free, no API key required.
-  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
-    maxZoom: 19,
-    attribution: "Tiles &copy; Esri"
-  }).addTo(map);
+  // Esri's free "Light Gray Canvas" basemap: bilingual (Japanese + English)
+  // labels, and roughly 4x fewer bytes per tile than a full-color street map
+  // (no API key required either way). It's two stacked layers: a plain gray
+  // base, then a reference layer that carries the roads/labels on top.
+  // maxNativeZoom: the tile server itself only renders up to z16; beyond that
+  // Leaflet just scales up the z16 tile so you can still zoom in for precise
+  // pin placement (map.setView("15") calls elsewhere stay valid either way).
+  const esriOpts = { maxZoom: 19, maxNativeZoom: 16, attribution: "Tiles &copy; Esri" };
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", esriOpts).addTo(map);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", esriOpts).addTo(map);
   markerLayer = L.layerGroup().addTo(map);
 
   // Click empty map => add a place at that spot
@@ -327,10 +351,11 @@ function initSearch() {
       el.addEventListener("click", () => {
         const f = features[i];
         const [lng, lat] = f.geometry.coordinates;
+        const name = f.properties.name || label(f);
         results.classList.add("hidden");
         input.value = "";
-        map.setView([lat, lng], 15);
-        openPlaceModal({ mode: "add", lat, lng, name: f.properties.name || label(f) });
+        map.setView([lat, lng], 16);
+        showPreviewPin(lat, lng, name);
       });
     });
   }
@@ -424,6 +449,9 @@ function initPlaceForm() {
           createdAt: serverTimestamp()
         });
         showToast("Added!");
+        // The real synced marker now exists (or will as soon as Firestore
+        // confirms), so drop the temporary search-preview pin if any.
+        if (previewMarker) { map.removeLayer(previewMarker); previewMarker = null; }
       }
       closeModal("place-modal");
     } catch (err) {
