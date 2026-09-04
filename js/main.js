@@ -1,0 +1,509 @@
+// ============================================================================
+// Japan Trip Planner — main app logic
+// Plain JS + Leaflet (map) + Firebase Firestore (shared live data).
+// No build step: this file is loaded directly as an ES module by index.html.
+// ============================================================================
+
+import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
+  onSnapshot, serverTimestamp, deleteField
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const CATEGORY_EMOJI = {
+  food: "🍜", temple: "🏯", nature: "🌳",
+  shopping: "🛍️", culture: "🎌", other: "📍"
+};
+
+// ---------------------------------------------------------------------------
+// 0. Boot: load firebase-config.js (user-created from the .sample file).
+//    If it's missing or still has placeholder values, show a friendly
+//    on-page message instead of a silent blank app.
+// ---------------------------------------------------------------------------
+let db = null;
+
+async function boot() {
+  let firebaseConfig;
+  try {
+    ({ firebaseConfig } = await import("./firebase-config.js"));
+  } catch (e) {
+    showSetupBanner(
+      "No firebase-config.js found yet.",
+      "Copy js/firebase-config.sample.js, rename the copy to js/firebase-config.js, " +
+      "and paste in your Firebase project's config values. See README.md."
+    );
+    return;
+  }
+  const stillPlaceholder = Object.values(firebaseConfig).some(v => String(v).startsWith("PASTE_YOUR"));
+  if (stillPlaceholder) {
+    showSetupBanner(
+      "firebase-config.js still has placeholder values.",
+      "Open js/firebase-config.js and paste in the real values from your Firebase project settings."
+    );
+    return;
+  }
+
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  startApp();
+}
+
+function showSetupBanner(title, body) {
+  document.body.innerHTML = `
+    <div style="max-width:520px;margin:60px auto;padding:28px;font-family:sans-serif;
+                background:#fff8f0;border:1px solid #e6d8c3;border-radius:14px;">
+      <h1 style="font-size:1.2rem;">⚙️ One setup step left</h1>
+      <p style="font-weight:600;">${title}</p>
+      <p style="color:#555;">${body}</p>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// 1. Identity (per-device display name, stored in localStorage)
+// ---------------------------------------------------------------------------
+const IDENTITY_KEY = "jtp_identity";
+function getIdentity() { return localStorage.getItem(IDENTITY_KEY) || ""; }
+function setIdentity(name) {
+  localStorage.setItem(IDENTITY_KEY, name);
+  document.getElementById("whoami-name").textContent = name;
+}
+
+function initIdentity() {
+  const current = getIdentity();
+  if (current) document.getElementById("whoami-name").textContent = current;
+  else openWhoamiModal();
+
+  document.getElementById("whoami-btn").addEventListener("click", openWhoamiModal);
+  document.getElementById("whoami-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const val = document.getElementById("whoami-input").value.trim();
+    if (!val) return;
+    setIdentity(val);
+    closeModal("whoami-modal");
+  });
+}
+function openWhoamiModal() {
+  document.getElementById("whoami-input").value = getIdentity();
+  openModal("whoami-modal");
+}
+
+// ---------------------------------------------------------------------------
+// 2. Generic modal helpers
+// ---------------------------------------------------------------------------
+function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.add("hidden"), 2200);
+}
+
+// ---------------------------------------------------------------------------
+// 3. Tabs / views
+// ---------------------------------------------------------------------------
+function initTabs() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById(`view-${btn.dataset.view}`).classList.add("active");
+      if (btn.dataset.view === "map") setTimeout(() => map && map.invalidateSize(), 50);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 4. Map setup
+// ---------------------------------------------------------------------------
+let map;
+let markerLayer;
+
+function initMap() {
+  map = L.map("map").setView([36.2048, 138.2529], 5.4); // centered on Japan
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+  markerLayer = L.layerGroup().addTo(map);
+
+  // Click empty map => add a place at that spot
+  map.on("click", (e) => {
+    openPlaceModal({ mode: "add", lat: e.latlng.lat, lng: e.latlng.lng });
+  });
+
+  document.getElementById("fab-add").addEventListener("click", () => {
+    openPlaceModal({ mode: "add" });
+  });
+}
+
+function makeDivIcon(category) {
+  return L.divIcon({
+    html: `<div class="marker-emoji">${CATEGORY_EMOJI[category] || CATEGORY_EMOJI.other}</div>`,
+    className: "",
+    iconSize: [30, 30],
+    iconAnchor: [15, 26],
+    popupAnchor: [0, -24]
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 5. Firestore live data
+// ---------------------------------------------------------------------------
+const placesById = new Map(); // id -> place data (includes .id)
+
+function startApp() {
+  initTabs();
+  initIdentity();
+  initMap();
+  initSearch();
+  initPlaceForm();
+  initListControls();
+
+  onSnapshot(collection(db, "places"), (snap) => {
+    placesById.clear();
+    snap.forEach(d => placesById.set(d.id, { id: d.id, ...d.data() }));
+    renderMarkers();
+    renderList();
+    renderItinerary();
+  }, (err) => {
+    console.error(err);
+    showToast("Couldn't load data — check Firestore rules / config.");
+  });
+
+  document.getElementById("filter-category").addEventListener("change", renderMarkers);
+}
+
+function renderMarkers() {
+  markerLayer.clearLayers();
+  const filter = document.getElementById("filter-category").value;
+  placesById.forEach(place => {
+    if (filter && place.category !== filter) return;
+    if (place.lat == null || place.lng == null) return;
+    const marker = L.marker([place.lat, place.lng], { icon: makeDivIcon(place.category) });
+    marker.bindPopup(buildPopupHTML(place));
+    marker.addTo(markerLayer);
+  });
+}
+
+function voteCount(place) { return Object.keys(place.votes || {}).length; }
+function hasVoted(place, name) { return !!(place.votes && place.votes[name]); }
+
+function buildPopupHTML(place) {
+  const votes = voteCount(place);
+  const voted = hasVoted(place, getIdentity());
+  const dateStr = place.date ? formatDate(place.date) : "no date yet";
+  const gmaps = googleMapsUrl(place);
+  return `
+    <div class="popup-title">${escapeHtml(place.name)}</div>
+    <div class="popup-meta">${CATEGORY_EMOJI[place.category] || "📍"} ${place.category || "other"} · ${dateStr}${place.addedBy ? " · added by " + escapeHtml(place.addedBy) : ""}</div>
+    ${place.notes ? `<div class="popup-notes">${escapeHtml(place.notes)}</div>` : ""}
+    <div class="popup-actions">
+      <button class="vote-btn ${voted ? "voted" : ""}" data-action="vote" data-id="${place.id}">👍 ${votes}</button>
+      <a class="gmaps-link" href="${gmaps}" target="_blank" rel="noopener">Open in Google Maps</a>
+      <a class="edit-link" href="#" data-action="edit" data-id="${place.id}">✏️ edit</a>
+    </div>`;
+}
+
+function googleMapsUrl(place) {
+  if (place.lat != null && place.lng != null) {
+    return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " Japan")}`;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Event delegation for vote / edit clicks coming from map popups, list cards,
+// and itinerary cards (all built as raw HTML, not permanent DOM nodes).
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const id = el.dataset.id;
+  if (!id) return;
+  if (el.dataset.action === "vote") {
+    e.preventDefault();
+    toggleVote(id);
+  } else if (el.dataset.action === "edit") {
+    e.preventDefault();
+    const place = placesById.get(id);
+    if (place) openPlaceModal({ mode: "edit", place });
+  }
+});
+
+async function toggleVote(id) {
+  const name = getIdentity();
+  if (!name) { openWhoamiModal(); return; }
+  const place = placesById.get(id);
+  if (!place) return;
+  const already = hasVoted(place, name);
+  try {
+    await updateDoc(doc(db, "places", id), {
+      [`votes.${name}`]: already ? deleteField() : true
+    });
+  } catch (e) {
+    console.error(e);
+    showToast("Vote didn't save — check your connection.");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 6. Place search (Nominatim / OpenStreetMap — free, no API key)
+// ---------------------------------------------------------------------------
+function initSearch() {
+  const input = document.getElementById("place-search");
+  const results = document.getElementById("search-results");
+  let debounceTimer;
+
+  input.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 3) { results.classList.add("hidden"); return; }
+    debounceTimer = setTimeout(() => runSearch(q), 400);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-wrap")) results.classList.add("hidden");
+  });
+
+  async function runSearch(q) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=jp&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      renderResults(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function renderResults(items) {
+    if (!items.length) { results.classList.add("hidden"); return; }
+    results.innerHTML = items.map((item, i) =>
+      `<div class="result-item" data-i="${i}">${escapeHtml(shortLabel(item.display_name))}</div>`
+    ).join("");
+    results.classList.remove("hidden");
+    results.querySelectorAll(".result-item").forEach((el, i) => {
+      el.addEventListener("click", () => {
+        const item = items[i];
+        const lat = parseFloat(item.lat), lng = parseFloat(item.lon);
+        results.classList.add("hidden");
+        input.value = "";
+        map.setView([lat, lng], 15);
+        openPlaceModal({ mode: "add", lat, lng, name: shortLabel(item.display_name) });
+      });
+    });
+  }
+
+  function shortLabel(displayName) {
+    return displayName.split(",").slice(0, 3).join(",");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 7. Add / edit place modal
+// ---------------------------------------------------------------------------
+let formState = { mode: "add", id: null };
+
+function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" }) {
+  formState = { mode, id: place ? place.id : null };
+  document.getElementById("place-modal-title").textContent = mode === "edit" ? "Edit place" : "Add a place";
+  document.getElementById("place-modal-delete").classList.toggle("hidden", mode !== "edit");
+
+  const f = fieldRefs();
+  if (mode === "edit" && place) {
+    f.name.value = place.name || "";
+    f.category.value = place.category || "other";
+    f.notes.value = place.notes || "";
+    f.date.value = place.date || "";
+    f.lat.value = place.lat ?? "";
+    f.lng.value = place.lng ?? "";
+  } else {
+    f.name.value = name;
+    f.category.value = "other";
+    f.notes.value = "";
+    f.date.value = "";
+    f.lat.value = lat ?? "";
+    f.lng.value = lng ?? "";
+  }
+  updateCoordsDisplay();
+  openModal("place-modal");
+  f.name.focus();
+}
+
+function fieldRefs() {
+  return {
+    name: document.getElementById("pf-name"),
+    category: document.getElementById("pf-category"),
+    notes: document.getElementById("pf-notes"),
+    date: document.getElementById("pf-date"),
+    lat: document.getElementById("pf-lat"),
+    lng: document.getElementById("pf-lng")
+  };
+}
+
+function updateCoordsDisplay() {
+  const f = fieldRefs();
+  const disp = document.getElementById("pf-coords-display");
+  if (f.lat.value && f.lng.value) {
+    disp.textContent = `📍 Location set (${parseFloat(f.lat.value).toFixed(4)}, ${parseFloat(f.lng.value).toFixed(4)})`;
+  } else {
+    disp.textContent = "📍 No location set yet — close this, then click the map or search above (optional; you can still save without one).";
+  }
+}
+
+function initPlaceForm() {
+  document.getElementById("place-modal-cancel").addEventListener("click", () => closeModal("place-modal"));
+
+  document.getElementById("place-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = getIdentity();
+    if (!name) { openWhoamiModal(); return; }
+    const f = fieldRefs();
+    const payload = {
+      name: f.name.value.trim(),
+      category: f.category.value,
+      notes: f.notes.value.trim(),
+      date: f.date.value || "",
+      lat: f.lat.value ? parseFloat(f.lat.value) : null,
+      lng: f.lng.value ? parseFloat(f.lng.value) : null
+    };
+    if (!payload.name) return;
+
+    try {
+      if (formState.mode === "edit" && formState.id) {
+        await updateDoc(doc(db, "places", formState.id), payload);
+        showToast("Saved changes");
+      } else {
+        await addDoc(collection(db, "places"), {
+          ...payload,
+          addedBy: name,
+          votes: {},
+          createdAt: serverTimestamp()
+        });
+        showToast("Added!");
+      }
+      closeModal("place-modal");
+    } catch (err) {
+      console.error(err);
+      showToast("Couldn't save — check your connection.");
+    }
+  });
+
+  document.getElementById("place-modal-delete").addEventListener("click", async () => {
+    if (!formState.id) return;
+    if (!confirm("Delete this place for everyone?")) return;
+    try {
+      await deleteDoc(doc(db, "places", formState.id));
+      showToast("Deleted");
+      closeModal("place-modal");
+    } catch (err) {
+      console.error(err);
+      showToast("Couldn't delete — check your connection.");
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 8. List view
+// ---------------------------------------------------------------------------
+function initListControls() {
+  document.getElementById("list-filter-category").addEventListener("change", renderList);
+  document.getElementById("list-sort").addEventListener("change", renderList);
+  document.getElementById("list-add-btn").addEventListener("click", () => openPlaceModal({ mode: "add" }));
+}
+
+function renderList() {
+  const container = document.getElementById("place-list");
+  const filter = document.getElementById("list-filter-category").value;
+  const sortBy = document.getElementById("list-sort").value;
+
+  let items = Array.from(placesById.values());
+  if (filter) items = items.filter(p => p.category === filter);
+
+  items.sort((a, b) => {
+    if (sortBy === "votes") return voteCount(b) - voteCount(a);
+    if (sortBy === "name") return (a.name || "").localeCompare(b.name || "");
+    // newest first (fall back to name if createdAt missing, e.g. optimistic UI)
+    const at = a.createdAt?.seconds || 0, bt = b.createdAt?.seconds || 0;
+    return bt - at;
+  });
+
+  if (!items.length) {
+    container.innerHTML = `<p style="color:#8a8579;padding:20px;">No places yet — add the first one!</p>`;
+    return;
+  }
+
+  container.innerHTML = items.map(place => `
+    <div class="place-card">
+      <div class="pc-top">
+        <div>
+          <div class="pc-name">${escapeHtml(place.name)}</div>
+          <div class="pc-meta">${place.addedBy ? "added by " + escapeHtml(place.addedBy) : ""}</div>
+        </div>
+        <div class="pc-cat">${CATEGORY_EMOJI[place.category] || "📍"}</div>
+      </div>
+      ${place.notes ? `<div class="pc-notes">${escapeHtml(place.notes)}</div>` : ""}
+      <div>
+        <span class="date-pill ${place.date ? "" : "unset"}">${place.date ? formatDate(place.date) : "no date yet"}</span>
+      </div>
+      <div class="pc-actions">
+        <button class="vote-btn ${hasVoted(place, getIdentity()) ? "voted" : ""}" data-action="vote" data-id="${place.id}">👍 ${voteCount(place)}</button>
+        <a class="gmaps-link" href="${googleMapsUrl(place)}" target="_blank" rel="noopener">Open in Google Maps</a>
+        <a class="edit-link" href="#" data-action="edit" data-id="${place.id}">✏️ edit</a>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ---------------------------------------------------------------------------
+// 9. Itinerary view (grouped by proposed date)
+// ---------------------------------------------------------------------------
+function renderItinerary() {
+  const board = document.getElementById("itinerary-board");
+  const groups = new Map(); // date ("" = unscheduled) -> [places]
+
+  placesById.forEach(place => {
+    const key = place.date || "";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(place);
+  });
+
+  const dateKeys = Array.from(groups.keys()).filter(k => k).sort();
+  const orderedKeys = groups.has("") ? [...dateKeys, ""] : dateKeys;
+
+  if (!orderedKeys.length) {
+    board.innerHTML = `<p style="color:#8a8579;padding:20px;">No places yet — add some, then assign dates to build your itinerary.</p>`;
+    return;
+  }
+
+  board.innerHTML = orderedKeys.map(key => {
+    const list = groups.get(key).slice().sort((a, b) => voteCount(b) - voteCount(a));
+    const heading = key ? formatDate(key) : "Unscheduled";
+    return `
+      <div class="day-column">
+        <h3>${heading}</h3>
+        ${list.map(place => `
+          <div class="day-card">
+            <div class="dc-name">${CATEGORY_EMOJI[place.category] || "📍"} ${escapeHtml(place.name)}</div>
+            <div class="dc-votes">👍 ${voteCount(place)} · <a class="edit-link" href="#" data-action="edit" data-id="${place.id}">edit</a></div>
+          </div>
+        `).join("")}
+      </div>`;
+  }).join("");
+}
+
+// ---------------------------------------------------------------------------
+boot();
