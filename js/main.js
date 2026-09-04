@@ -126,9 +126,12 @@ let markerLayer;
 
 function initMap() {
   map = L.map("map").setView([36.2048, 138.2529], 5.4); // centered on Japan
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  // Esri's public World Street Map basemap renders English/Latin-script
+  // labels globally, unlike the default OSM tile style which always renders
+  // local-script (Japanese) labels. Free, no API key required.
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
+    attribution: "Tiles &copy; Esri"
   }).addTo(map);
   markerLayer = L.layerGroup().addTo(map);
 
@@ -260,18 +263,33 @@ async function toggleVote(id) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Place search (Nominatim / OpenStreetMap — free, no API key)
+// 6. Place search (Photon / Komoot, built on OpenStreetMap data — free, no
+//    API key, and unlike Nominatim's endpoint it reliably sends the CORS
+//    header browsers require. lang=en asks it to prefer English names.)
 // ---------------------------------------------------------------------------
+const JAPAN_BBOX = "122.8,20.4,154.0,45.6"; // west,south,east,north — biases/filters results to Japan
+
 function initSearch() {
   const input = document.getElementById("place-search");
   const results = document.getElementById("search-results");
   let debounceTimer;
+  let latestQueryId = 0;
 
   input.addEventListener("input", () => {
     clearTimeout(debounceTimer);
     const q = input.value.trim();
-    if (q.length < 3) { results.classList.add("hidden"); return; }
+    if (q.length < 2) { results.classList.add("hidden"); return; }
     debounceTimer = setTimeout(() => runSearch(q), 400);
+  });
+
+  // Typing-and-waiting isn't obvious, so Enter searches immediately too.
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (q.length < 2) return;
+    runSearch(q);
   });
 
   document.addEventListener("click", (e) => {
@@ -279,36 +297,48 @@ function initSearch() {
   });
 
   async function runSearch(q) {
+    const queryId = ++latestQueryId;
+    showMessage("Searching…");
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=jp&q=${encodeURIComponent(q)}`;
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lang=en&lat=36.2048&lon=138.2529&bbox=${JAPAN_BBOX}`;
       const res = await fetch(url);
+      if (queryId !== latestQueryId) return; // a newer keystroke already superseded this
+      if (!res.ok) throw new Error(`Search API returned ${res.status}`);
       const data = await res.json();
-      renderResults(data);
+      renderResults(data.features || []);
     } catch (e) {
       console.error(e);
+      if (queryId === latestQueryId) showMessage("Search failed — check your connection and try again.");
     }
   }
 
-  function renderResults(items) {
-    if (!items.length) { results.classList.add("hidden"); return; }
-    results.innerHTML = items.map((item, i) =>
-      `<div class="result-item" data-i="${i}">${escapeHtml(shortLabel(item.display_name))}</div>`
+  function showMessage(text) {
+    results.innerHTML = `<div class="result-item" style="cursor:default;color:#8a8579;">${escapeHtml(text)}</div>`;
+    results.classList.remove("hidden");
+  }
+
+  function renderResults(features) {
+    if (!features.length) { showMessage("No matches — try a different spelling."); return; }
+    results.innerHTML = features.map((f, i) =>
+      `<div class="result-item" data-i="${i}">${escapeHtml(label(f))}</div>`
     ).join("");
     results.classList.remove("hidden");
     results.querySelectorAll(".result-item").forEach((el, i) => {
       el.addEventListener("click", () => {
-        const item = items[i];
-        const lat = parseFloat(item.lat), lng = parseFloat(item.lon);
+        const f = features[i];
+        const [lng, lat] = f.geometry.coordinates;
         results.classList.add("hidden");
         input.value = "";
         map.setView([lat, lng], 15);
-        openPlaceModal({ mode: "add", lat, lng, name: shortLabel(item.display_name) });
+        openPlaceModal({ mode: "add", lat, lng, name: f.properties.name || label(f) });
       });
     });
   }
 
-  function shortLabel(displayName) {
-    return displayName.split(",").slice(0, 3).join(",");
+  function label(feature) {
+    const p = feature.properties;
+    const parts = [p.name, p.city || p.district, p.state, p.country].filter(Boolean);
+    return parts.join(", ");
   }
 }
 
