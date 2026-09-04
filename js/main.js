@@ -146,7 +146,11 @@ function showPreviewPin(lat, lng, name) {
 }
 
 function initMap() {
-  map = L.map("map").setView([36.2048, 138.2529], 5.4); // centered on Japan
+  // Opens centered on the Imperial Palace at a zoom that covers roughly a
+  // 25-30 mile radius — Shibuya, Shinjuku, etc. all visible without having
+  // to zoom in manually (which used to trigger a cascade of tile loads at
+  // every intermediate zoom level between "all of Japan" and here).
+  map = L.map("map").setView([35.6852, 139.7528], 11);
   // Esri's free "Light Gray Canvas" basemap: bilingual (Japanese + English)
   // labels, and roughly 4x fewer bytes per tile than a full-color street map
   // (no API key required either way). It's two stacked layers: a plain gray
