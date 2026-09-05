@@ -20,6 +20,11 @@
     <span class="logo">🗾</span>
     <h1 id="trip-title">Japan Trip Planner</h1>
   </div>
+  <nav class="city-nav">
+    <button class="city-btn" data-city="tokyo">Tokyo</button>
+    <button class="city-btn" data-city="kyoto">Kyoto</button>
+    <button class="city-btn" data-city="osaka">Osaka</button>
+  </nav>
   <nav class="tabs">
     <button class="tab-btn active" data-view="map">Map</button>
     <button class="tab-btn" data-view="list">List</button>
@@ -58,6 +63,12 @@
   <!-- LIST VIEW -->
   <section id="view-list" class="view">
     <div class="list-toolbar">
+      <select id="list-filter-city">
+        <option value="">All cities</option>
+        <option value="tokyo">Tokyo</option>
+        <option value="kyoto">Kyoto</option>
+        <option value="osaka">Osaka</option>
+      </select>
       <select id="list-filter-category">
         <option value="">All categories</option>
         <option value="food">🍜 Food</option>
@@ -79,6 +90,14 @@
 
   <!-- ITINERARY VIEW -->
   <section id="view-itinerary" class="view">
+    <div class="list-toolbar">
+      <select id="itinerary-filter-city">
+        <option value="">All cities</option>
+        <option value="tokyo">Tokyo</option>
+        <option value="kyoto">Kyoto</option>
+        <option value="osaka">Osaka</option>
+      </select>
+    </div>
     <div id="itinerary-board" class="itinerary-board"></div>
   </section>
 
@@ -91,6 +110,14 @@
     <form id="place-form">
       <label>Name
         <input type="text" id="pf-name" required placeholder="e.g. Fushimi Inari Shrine">
+      </label>
+      <label>City
+        <select id="pf-city">
+          <option value="">Unassigned</option>
+          <option value="tokyo">Tokyo</option>
+          <option value="kyoto">Kyoto</option>
+          <option value="osaka">Osaka</option>
+        </select>
       </label>
       <label>Category
         <select id="pf-category">

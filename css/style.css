@@ -41,6 +41,19 @@ h1, h2 { margin: 0; }
 .logo { font-size: 1.4rem; }
 .app-header h1 { font-size: 1.1rem; font-weight: 700; }
 
+.city-nav { display: flex; gap: 6px; }
+.city-btn {
+  border: 1px solid var(--accent2);
+  background: var(--paper);
+  color: var(--accent2);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.city-btn:hover { background: var(--accent2); color: white; }
+
 .tabs { display: flex; gap: 6px; }
 .tab-btn {
   border: 1px solid var(--border);
@@ -201,6 +214,7 @@ main { height: calc(100% - 57px); }
   border-radius: 999px;
 }
 .date-pill.unset { background: var(--border); color: var(--ink-soft); }
+.date-pill.city-pill { background: var(--accent); margin-right: 6px; }
 
 /* ---------- Itinerary view ---------- */
 .itinerary-board {
@@ -229,6 +243,7 @@ main { height: calc(100% - 57px); }
   font-size: 0.87rem;
 }
 .day-card .dc-name { font-weight: 600; }
+.day-card .dc-city { font-weight: 400; color: var(--ink-soft); font-size: 0.8em; }
 .day-card .dc-votes { color: var(--ink-soft); font-size: 0.78rem; }
 
 /* ---------- Modals ---------- */
@@ -301,6 +316,7 @@ main { height: calc(100% - 57px); }
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
   .app-header h1 { font-size: 0.95rem; }
+  .city-nav { order: 2; width: 100%; justify-content: center; margin-top: 4px; }
   .tabs { order: 3; width: 100%; justify-content: center; margin-top: 6px; }
   .filter-wrap select { min-width: 130px; }
 }

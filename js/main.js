@@ -17,6 +17,15 @@ const CATEGORY_EMOJI = {
   shopping: "🛍️", culture: "🎌", other: "📍"
 };
 
+// City quick-jump targets for the header nav — zoom chosen to comfortably
+// frame each city's core + day-trip-able surroundings on a typical screen.
+const CITIES = {
+  tokyo: { label: "Tokyo", lat: 35.6852, lng: 139.7528, zoom: 11 },
+  kyoto: { label: "Kyoto", lat: 35.0116, lng: 135.7681, zoom: 12 },
+  osaka: { label: "Osaka", lat: 34.6937, lng: 135.5023, zoom: 12 }
+};
+function cityLabel(key) { return (CITIES[key] && CITIES[key].label) || ""; }
+
 // ---------------------------------------------------------------------------
 // 0. Boot: load firebase-config.js (user-created from the .sample file).
 //    If it's missing or still has placeholder values, show a friendly
@@ -118,6 +127,23 @@ function initTabs() {
   });
 }
 
+// Header city buttons: jump to the Map tab (if not already there) and pan/
+// zoom straight to that city.
+function initCityNav() {
+  document.querySelectorAll(".city-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const city = CITIES[btn.dataset.city];
+      if (!city) return;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.view === "map"));
+      document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-map"));
+      setTimeout(() => {
+        map.invalidateSize();
+        map.setView([city.lat, city.lng], city.zoom);
+      }, 50);
+    });
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 4. Map setup
 // ---------------------------------------------------------------------------
@@ -191,11 +217,13 @@ const placesById = new Map(); // id -> place data (includes .id)
 
 function startApp() {
   initTabs();
+  initCityNav();
   initIdentity();
   initMap();
   initSearch();
   initPlaceForm();
   initListControls();
+  document.getElementById("itinerary-filter-city").addEventListener("change", renderItinerary);
 
   onSnapshot(collection(db, "places"), (snap) => {
     placesById.clear();
@@ -233,7 +261,7 @@ function buildPopupHTML(place) {
   const gmaps = googleMapsUrl(place);
   return `
     <div class="popup-title">${escapeHtml(place.name)}</div>
-    <div class="popup-meta">${CATEGORY_EMOJI[place.category] || "📍"} ${place.category || "other"} · ${dateStr}${place.addedBy ? " · added by " + escapeHtml(place.addedBy) : ""}</div>
+    <div class="popup-meta">${CATEGORY_EMOJI[place.category] || "📍"} ${place.category || "other"}${place.city ? " · " + escapeHtml(cityLabel(place.city)) : ""} · ${dateStr}${place.addedBy ? " · added by " + escapeHtml(place.addedBy) : ""}</div>
     ${place.notes ? `<div class="popup-notes">${escapeHtml(place.notes)}</div>` : ""}
     <div class="popup-actions">
       <button class="vote-btn ${voted ? "voted" : ""}" data-action="vote" data-id="${place.id}">👍 ${votes}</button>
@@ -385,6 +413,7 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
   const f = fieldRefs();
   if (mode === "edit" && place) {
     f.name.value = place.name || "";
+    f.city.value = place.city || "";
     f.category.value = place.category || "other";
     f.notes.value = place.notes || "";
     f.date.value = place.date || "";
@@ -392,6 +421,7 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
     f.lng.value = place.lng ?? "";
   } else {
     f.name.value = name;
+    f.city.value = "";
     f.category.value = "other";
     f.notes.value = "";
     f.date.value = "";
@@ -406,6 +436,7 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
 function fieldRefs() {
   return {
     name: document.getElementById("pf-name"),
+    city: document.getElementById("pf-city"),
     category: document.getElementById("pf-category"),
     notes: document.getElementById("pf-notes"),
     date: document.getElementById("pf-date"),
@@ -434,6 +465,7 @@ function initPlaceForm() {
     const f = fieldRefs();
     const payload = {
       name: f.name.value.trim(),
+      city: f.city.value,
       category: f.category.value,
       notes: f.notes.value.trim(),
       date: f.date.value || "",
@@ -483,6 +515,7 @@ function initPlaceForm() {
 // 8. List view
 // ---------------------------------------------------------------------------
 function initListControls() {
+  document.getElementById("list-filter-city").addEventListener("change", renderList);
   document.getElementById("list-filter-category").addEventListener("change", renderList);
   document.getElementById("list-sort").addEventListener("change", renderList);
   document.getElementById("list-add-btn").addEventListener("click", () => openPlaceModal({ mode: "add" }));
@@ -490,10 +523,12 @@ function initListControls() {
 
 function renderList() {
   const container = document.getElementById("place-list");
+  const cityFilter = document.getElementById("list-filter-city").value;
   const filter = document.getElementById("list-filter-category").value;
   const sortBy = document.getElementById("list-sort").value;
 
   let items = Array.from(placesById.values());
+  if (cityFilter) items = items.filter(p => p.city === cityFilter);
   if (filter) items = items.filter(p => p.category === filter);
 
   items.sort((a, b) => {
@@ -520,6 +555,7 @@ function renderList() {
       </div>
       ${place.notes ? `<div class="pc-notes">${escapeHtml(place.notes)}</div>` : ""}
       <div>
+        ${place.city ? `<span class="date-pill city-pill">${escapeHtml(cityLabel(place.city))}</span>` : ""}
         <span class="date-pill ${place.date ? "" : "unset"}">${place.date ? formatDate(place.date) : "no date yet"}</span>
       </div>
       <div class="pc-actions">
@@ -536,9 +572,11 @@ function renderList() {
 // ---------------------------------------------------------------------------
 function renderItinerary() {
   const board = document.getElementById("itinerary-board");
+  const cityFilter = document.getElementById("itinerary-filter-city").value;
   const groups = new Map(); // date ("" = unscheduled) -> [places]
 
   placesById.forEach(place => {
+    if (cityFilter && place.city !== cityFilter) return;
     const key = place.date || "";
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(place);
@@ -548,7 +586,10 @@ function renderItinerary() {
   const orderedKeys = groups.has("") ? [...dateKeys, ""] : dateKeys;
 
   if (!orderedKeys.length) {
-    board.innerHTML = `<p style="color:#8a8579;padding:20px;">No places yet — add some, then assign dates to build your itinerary.</p>`;
+    const msg = cityFilter
+      ? `No ${escapeHtml(cityLabel(cityFilter))} places yet — add some, or assign that city on existing places.`
+      : "No places yet — add some, then assign dates to build your itinerary.";
+    board.innerHTML = `<p style="color:#8a8579;padding:20px;">${msg}</p>`;
     return;
   }
 
@@ -560,7 +601,7 @@ function renderItinerary() {
         <h3>${heading}</h3>
         ${list.map(place => `
           <div class="day-card">
-            <div class="dc-name">${CATEGORY_EMOJI[place.category] || "📍"} ${escapeHtml(place.name)}</div>
+            <div class="dc-name">${CATEGORY_EMOJI[place.category] || "📍"} ${escapeHtml(place.name)}${place.city ? ` <span class="dc-city">· ${escapeHtml(cityLabel(place.city))}</span>` : ""}</div>
             <div class="dc-votes">👍 ${voteCount(place)} · <a class="edit-link" href="#" data-action="edit" data-id="${place.id}">edit</a></div>
           </div>
         `).join("")}
