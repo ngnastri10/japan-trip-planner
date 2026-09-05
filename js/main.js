@@ -11,6 +11,7 @@ import {
   getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, serverTimestamp, deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { NEIGHBORHOODS } from "./neighborhoods-data.js";
 
 const CATEGORY_EMOJI = {
   food: "🍜", temple: "🏯", nature: "🌳",
@@ -189,6 +190,7 @@ function initMap() {
   L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", esriOpts).addTo(map);
   L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", esriOpts).addTo(map);
   markerLayer = L.layerGroup().addTo(map);
+  renderNeighborhoods();
 
   // Click empty map => add a place at that spot
   map.on("click", (e) => {
@@ -197,6 +199,36 @@ function initMap() {
 
   document.getElementById("fab-add").addEventListener("click", () => {
     openPlaceModal({ mode: "add" });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Neighborhood overlay — shaded outlines (real OSM boundary where one exists,
+// hand-drawn approximation otherwise; see neighborhoods-data.js). Purely a
+// visual/info layer on the Map tab — doesn't touch places, votes, or dates.
+// ---------------------------------------------------------------------------
+const NBHD_REST_OPACITY = 0.16;
+const NBHD_HOVER_OPACITY = 0.5;
+
+function renderNeighborhoods() {
+  NEIGHBORHOODS.forEach(n => {
+    const rings = n.parts.map(p => [p.outer, ...p.holes]);
+    const layer = L.polygon(rings, {
+      color: n.color,
+      weight: 2,
+      opacity: 0.75,
+      fillColor: n.color,
+      fillOpacity: NBHD_REST_OPACITY,
+      bubblingMouseEvents: false // clicking a shaded area shows its info, not the "add place" form
+    }).addTo(map);
+
+    layer.bindTooltip(
+      `<b>${escapeHtml(n.name)}</b>${escapeHtml(n.desc)}`,
+      { className: "nbhd-tip", sticky: true }
+    );
+    layer.on("mouseover", () => layer.setStyle({ fillOpacity: NBHD_HOVER_OPACITY, weight: 3 }));
+    layer.on("mouseout", () => layer.setStyle({ fillOpacity: NBHD_REST_OPACITY, weight: 2 }));
+    layer.on("click", () => layer.setStyle({ fillOpacity: NBHD_HOVER_OPACITY, weight: 3 }));
   });
 }
 

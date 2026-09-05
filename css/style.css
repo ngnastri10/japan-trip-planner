@@ -162,6 +162,13 @@ main { height: calc(100% - 57px); }
   color: var(--accent2);
   text-decoration: none;
 }
+.nbhd-tip {
+  max-width: 260px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.nbhd-tip b { display: block; margin-bottom: 3px; font-size: 0.9rem; }
+
 .marker-emoji {
   font-size: 1.6rem;
   text-align: center;
