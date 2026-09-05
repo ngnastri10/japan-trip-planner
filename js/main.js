@@ -209,8 +209,11 @@ function initMap() {
 // ---------------------------------------------------------------------------
 const NBHD_REST_OPACITY = 0.16;
 const NBHD_HOVER_OPACITY = 0.5;
+let neighborhoodLayer;
 
 function renderNeighborhoods() {
+  neighborhoodLayer = L.layerGroup();
+
   NEIGHBORHOODS.forEach(n => {
     const rings = n.parts.map(p => [p.outer, ...p.holes]);
     const layer = L.polygon(rings, {
@@ -220,7 +223,7 @@ function renderNeighborhoods() {
       fillColor: n.color,
       fillOpacity: NBHD_REST_OPACITY,
       bubblingMouseEvents: false // clicking a shaded area shows its info, not the "add place" form
-    }).addTo(map);
+    });
 
     layer.bindTooltip(
       `<b>${escapeHtml(n.name)}</b>${escapeHtml(n.desc)}`,
@@ -229,6 +232,15 @@ function renderNeighborhoods() {
     layer.on("mouseover", () => layer.setStyle({ fillOpacity: NBHD_HOVER_OPACITY, weight: 3 }));
     layer.on("mouseout", () => layer.setStyle({ fillOpacity: NBHD_REST_OPACITY, weight: 2 }));
     layer.on("click", () => layer.setStyle({ fillOpacity: NBHD_HOVER_OPACITY, weight: 3 }));
+
+    layer.addTo(neighborhoodLayer);
+  });
+
+  const checkbox = document.getElementById("toggle-neighborhoods");
+  if (checkbox.checked) neighborhoodLayer.addTo(map);
+  checkbox.addEventListener("change", () => {
+    if (checkbox.checked) neighborhoodLayer.addTo(map);
+    else map.removeLayer(neighborhoodLayer);
   });
 }
 

@@ -100,6 +100,18 @@ main { height: calc(100% - 57px); }
 }
 .filter-wrap select { min-width: 170px; }
 
+.nbhd-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.nbhd-toggle input { cursor: pointer; }
+
 .search-results {
   position: absolute;
   top: calc(100% + 4px);
