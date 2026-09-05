@@ -151,6 +151,7 @@ function initMap() {
   // to zoom in manually (which used to trigger a cascade of tile loads at
   // every intermediate zoom level between "all of Japan" and here).
   map = L.map("map").setView([35.6852, 139.7528], 11);
+  map.zoomControl.setPosition("bottomleft"); // top-left was covering the search results dropdown
   // Esri's free "Light Gray Canvas" basemap: bilingual (Japanese + English)
   // labels, and roughly 4x fewer bytes per tile than a full-color street map
   // (no API key required either way). It's two stacked layers: a plain gray
