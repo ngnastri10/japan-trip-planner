@@ -188,7 +188,8 @@ main { height: calc(100% - 57px); }
 }
 
 .nbhd-tip {
-  max-width: 260px;
+  max-width: 360px;
+  min-width: 220px;
   font-size: 0.82rem;
   line-height: 1.4;
   white-space: normal;      /* Leaflet's default tooltip CSS is nowrap, which
