@@ -393,6 +393,27 @@ main { height: calc(100% - 57px); }
 }
 .gmaps-status.ok { background: #e5f3ee; color: var(--accent2); }
 .gmaps-status.fail { background: var(--accent-soft); color: var(--accent); }
+
+.wiki-banner {
+  background: #fdf3d9;
+  border: 1px solid #e8cf7a;
+  color: #7a5c00;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  margin-top: -6px;
+  margin-bottom: 10px;
+}
+.wiki-banner-actions { display: flex; gap: 8px; margin-top: 6px; }
+.wiki-banner-actions button {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  border-radius: 7px;
+}
+#pf-notes.notes-flagged {
+  background: #fffbea;
+  border-color: #e8cf7a;
+}
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 .btn-primary, .btn-secondary, .btn-danger {

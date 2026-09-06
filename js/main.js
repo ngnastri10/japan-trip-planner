@@ -555,10 +555,14 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
   document.getElementById("pf-gmaps-link").value = "";
   const gmapsStatus = document.getElementById("pf-gmaps-status");
   gmapsStatus.className = "gmaps-status hidden";
+  wikiLookupToken++; // invalidate any lookup still in flight from a previous open
+  clearWikiFlag();
 
   updateCoordsDisplay();
   openModal("place-modal");
   f.name.focus();
+
+  if (mode === "add" && name) tryWikipediaAutofill();
 }
 
 function fieldRefs() {
@@ -611,6 +615,65 @@ function parseGoogleMapsUrl(url) {
   return { lat, lng, name };
 }
 
+// ---------------------------------------------------------------------------
+// Wikipedia notes auto-fill — free, no API key, CORS-friendly. Coverage is
+// limited to places famous enough to have an article (temples, museums,
+// landmarks); a small restaurant or café will just find nothing, silently.
+// Whatever gets pulled in is flagged and blocks Save until reviewed, since
+// it's someone else's summary, not a verified fact about this specific trip.
+// ---------------------------------------------------------------------------
+let pendingWikiConfirm = false;
+let wikiLookupToken = 0;
+
+async function fetchWikipediaSummary(name) {
+  try {
+    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`;
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!res.ok) return null; // 404 etc. -- no matching article, nothing to fill
+    const data = await res.json();
+    if (data.type === "disambiguation") return null; // ambiguous title, not a real summary
+    return data.extract || null;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
+
+async function tryWikipediaAutofill() {
+  const f = fieldRefs();
+  const name = f.name.value.trim();
+  if (!name || f.notes.value.trim()) return; // nothing to look up, or already has notes
+
+  const token = ++wikiLookupToken;
+  const extract = await fetchWikipediaSummary(name);
+  if (token !== wikiLookupToken) return;      // a newer name superseded this lookup
+  if (!extract) return;
+  if (f.notes.value.trim()) return;           // user typed their own notes while we waited
+
+  f.notes.value = extract;
+  pendingWikiConfirm = true;
+  document.getElementById("pf-notes").classList.add("notes-flagged");
+  document.getElementById("pf-wiki-banner").classList.remove("hidden");
+}
+
+function clearWikiFlag() {
+  pendingWikiConfirm = false;
+  document.getElementById("pf-notes").classList.remove("notes-flagged");
+  document.getElementById("pf-wiki-banner").classList.add("hidden");
+}
+
+function initWikiAutofill() {
+  document.getElementById("pf-name").addEventListener("blur", tryWikipediaAutofill);
+  document.getElementById("pf-notes").addEventListener("input", () => {
+    if (pendingWikiConfirm) clearWikiFlag(); // editing it yourself counts as reviewing it
+  });
+  document.getElementById("wiki-keep-btn").addEventListener("click", clearWikiFlag);
+  document.getElementById("wiki-clear-btn").addEventListener("click", () => {
+    document.getElementById("pf-notes").value = "";
+    clearWikiFlag();
+  });
+}
+
 function initGmapsLinkPaste() {
   const input = document.getElementById("pf-gmaps-link");
   const status = document.getElementById("pf-gmaps-status");
@@ -629,7 +692,10 @@ function initGmapsLinkPaste() {
     f.lat.value = result.lat;
     f.lng.value = result.lng;
     updateCoordsDisplay();
-    if (result.name && !f.name.value.trim()) f.name.value = result.name;
+    if (result.name && !f.name.value.trim()) {
+      f.name.value = result.name;
+      tryWikipediaAutofill();
+    }
 
     status.textContent = "✅ Location set from link" + (result.name ? ` — "${result.name}"` : "") + ". Fill in the rest below.";
     status.className = "gmaps-status ok";
@@ -638,10 +704,16 @@ function initGmapsLinkPaste() {
 
 function initPlaceForm() {
   initGmapsLinkPaste();
+  initWikiAutofill();
   document.getElementById("place-modal-cancel").addEventListener("click", () => closeModal("place-modal"));
 
   document.getElementById("place-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (pendingWikiConfirm) {
+      showToast("Review the auto-filled notes first — keep, clear, or edit them.");
+      document.getElementById("pf-notes").focus();
+      return;
+    }
     const name = getIdentity();
     if (!name) { openWhoamiModal(); return; }
     const f = fieldRefs();
