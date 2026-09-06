@@ -29,11 +29,17 @@ function cat(key) { return CATEGORIES[key] || CATEGORIES.other; }
 // City quick-jump targets for the header nav — zoom chosen to comfortably
 // frame each city's core + day-trip-able surroundings on a typical screen.
 const CITIES = {
-  tokyo: { label: "Tokyo", lat: 35.6852, lng: 139.7528, zoom: 11 },
-  kyoto: { label: "Kyoto", lat: 35.0116, lng: 135.7681, zoom: 12 },
-  osaka: { label: "Osaka", lat: 34.6937, lng: 135.5023, zoom: 12 },
-  seoul: { label: "Seoul", lat: 37.5665, lng: 126.9780, zoom: 11 },
-  busan: { label: "Busan", lat: 35.1796, lng: 129.0756, zoom: 11 }
+  tokyo: { label: "Tokyo", lat: 35.6852, lng: 139.7528, zoom: 11, tiles: "esri" },
+  kyoto: { label: "Kyoto", lat: 35.0116, lng: 135.7681, zoom: 12, tiles: "esri" },
+  osaka: { label: "Osaka", lat: 34.6937, lng: 135.5023, zoom: 12, tiles: "esri" },
+  // Esri's basemap has no real street-level data for South Korea (a legal
+  // export restriction, not a bug — see README) and just shows a blank
+  // placeholder there. Plain OSM has full Seoul/Busan detail instead, at the
+  // cost of Korean-only tile labels; every neighborhood label, pin, and
+  // popup stays in English regardless, since those are drawn by our own
+  // code on top, independent of whichever tiles are underneath.
+  seoul: { label: "Seoul", lat: 37.5665, lng: 126.9780, zoom: 11, tiles: "osm" },
+  busan: { label: "Busan", lat: 35.1796, lng: 129.0756, zoom: 11, tiles: "osm" }
 };
 function cityLabel(key) { return (CITIES[key] && CITIES[key].label) || ""; }
 
@@ -147,6 +153,7 @@ function initCityNav() {
       if (!city) return;
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.view === "map"));
       document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === "view-map"));
+      setBaseTiles(city.tiles);
       setTimeout(() => {
         map.invalidateSize();
         map.setView([city.lat, city.lng], city.zoom);
@@ -182,6 +189,16 @@ function showPreviewPin(lat, lng, name) {
   previewMarker = L.marker([lat, lng]).addTo(map).bindPopup(popupNode);
 }
 
+const baseTileSets = {}; // "esri" | "osm" -> Leaflet layer, populated in initMap()
+let currentTileSet = null;
+
+function setBaseTiles(which) {
+  if (which === currentTileSet || !baseTileSets[which]) return;
+  if (currentTileSet) map.removeLayer(baseTileSets[currentTileSet]);
+  baseTileSets[which].addTo(map);
+  currentTileSet = which;
+}
+
 function initMap() {
   // Opens centered on the Imperial Palace at a zoom that covers roughly a
   // 25-30 mile radius — Shibuya, Shinjuku, etc. all visible without having
@@ -197,8 +214,20 @@ function initMap() {
   // Leaflet just scales up the z16 tile so you can still zoom in for precise
   // pin placement (map.setView("15") calls elsewhere stay valid either way).
   const esriOpts = { maxZoom: 19, maxNativeZoom: 16, attribution: "Tiles &copy; Esri" };
-  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", esriOpts).addTo(map);
-  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", esriOpts).addTo(map);
+  baseTileSets.esri = L.layerGroup([
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", esriOpts),
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", esriOpts)
+  ]);
+  // Esri has no real street-level data for South Korea (see the CITIES
+  // comment above), so Seoul/Busan use plain OpenStreetMap instead — full
+  // detail there, Korean-only tile labels as the tradeoff.
+  baseTileSets.osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    subdomains: "abc",
+    attribution: "&copy; OpenStreetMap contributors"
+  });
+  baseTileSets.esri.addTo(map);
+  currentTileSet = "esri";
   markerLayer = L.layerGroup().addTo(map);
   renderNeighborhoods();
 
