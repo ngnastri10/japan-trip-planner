@@ -11,7 +11,10 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<link rel="stylesheet" href="css/style.css">
+<!-- ?v= is a cache-buster: niconastri.com sits behind Cloudflare, which caches
+     static files for hours per edge location. Bump this number any time a
+     CSS change needs to show up immediately instead of waiting on that. -->
+<link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
 
@@ -171,6 +174,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/main.js?v=2"></script>
 </body>
 </html>
