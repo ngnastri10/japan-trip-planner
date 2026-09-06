@@ -156,6 +156,14 @@ main { height: calc(100% - 57px); }
 
 /* Leaflet popup styling */
 .leaflet-popup-content { margin: 10px 12px; min-width: 200px; }
+.popup-cat {
+  display: inline-block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
 .popup-title { font-weight: 700; font-size: 1rem; margin-bottom: 2px; }
 .popup-meta { font-size: 0.8rem; color: var(--ink-soft); margin-bottom: 6px; }
 .popup-notes { font-size: 0.85rem; margin-bottom: 8px; }

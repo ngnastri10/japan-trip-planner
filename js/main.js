@@ -13,10 +13,18 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { NEIGHBORHOODS } from "./neighborhoods-data.js";
 
-const CATEGORY_EMOJI = {
-  food: "🍜", temple: "🏯", nature: "🌳",
-  shopping: "🛍️", culture: "🎌", other: "📍"
+const CATEGORIES = {
+  food:     { emoji: "🍜", label: "Food",             color: "#e08e0b" },
+  temple:   { emoji: "🏯", label: "Temple / Shrine",   color: "#c0392b" },
+  nature:   { emoji: "🌳", label: "Nature / Park",     color: "#16a34a" },
+  shopping: { emoji: "🛍️", label: "Shopping",          color: "#d6336c" },
+  culture:  { emoji: "🎌", label: "Culture / Museum",  color: "#2563eb" },
+  cafe:     { emoji: "☕", label: "Café / Tea",         color: "#8b5e34" },
+  bar:      { emoji: "🍸", label: "Bar",               color: "#7c3aed" },
+  activity: { emoji: "🧭", label: "Activity / Sights", color: "#0891b2" },
+  other:    { emoji: "📍", label: "Other",             color: "#6b7280" }
 };
+function cat(key) { return CATEGORIES[key] || CATEGORIES.other; }
 
 // City quick-jump targets for the header nav — zoom chosen to comfortably
 // frame each city's core + day-trip-able surroundings on a typical screen.
@@ -258,7 +266,7 @@ function renderNeighborhoods() {
 
 function makeDivIcon(category) {
   return L.divIcon({
-    html: `<div class="marker-emoji">${CATEGORY_EMOJI[category] || CATEGORY_EMOJI.other}</div>`,
+    html: `<div class="marker-emoji">${cat(category).emoji}</div>`,
     className: "",
     iconSize: [30, 30],
     iconAnchor: [15, 26],
@@ -315,9 +323,11 @@ function buildPopupHTML(place) {
   const voted = hasVoted(place, getIdentity());
   const dateStr = place.date ? formatDate(place.date) : "no date yet";
   const gmaps = googleMapsUrl(place);
+  const c = cat(place.category);
   return `
+    <span class="popup-cat" style="color:${c.color}">${c.emoji} ${escapeHtml(c.label)}</span>
     <div class="popup-title">${escapeHtml(place.name)}</div>
-    <div class="popup-meta">${CATEGORY_EMOJI[place.category] || "📍"} ${place.category || "other"}${place.city ? " · " + escapeHtml(cityLabel(place.city)) : ""} · ${dateStr}${place.addedBy ? " · added by " + escapeHtml(place.addedBy) : ""}</div>
+    <div class="popup-meta">${place.city ? escapeHtml(cityLabel(place.city)) + " · " : ""}${dateStr}${place.addedBy ? " · added by " + escapeHtml(place.addedBy) : ""}</div>
     ${place.notes ? `<div class="popup-notes">${escapeHtml(place.notes)}</div>` : ""}
     <div class="popup-actions">
       <button class="vote-btn ${voted ? "voted" : ""}" data-action="vote" data-id="${place.id}">👍 ${votes}</button>
@@ -607,7 +617,7 @@ function renderList() {
           <div class="pc-name">${escapeHtml(place.name)}</div>
           <div class="pc-meta">${place.addedBy ? "added by " + escapeHtml(place.addedBy) : ""}</div>
         </div>
-        <div class="pc-cat">${CATEGORY_EMOJI[place.category] || "📍"}</div>
+        <div class="pc-cat">${cat(place.category).emoji}</div>
       </div>
       ${place.notes ? `<div class="pc-notes">${escapeHtml(place.notes)}</div>` : ""}
       <div>
@@ -657,7 +667,7 @@ function renderItinerary() {
         <h3>${heading}</h3>
         ${list.map(place => `
           <div class="day-card">
-            <div class="dc-name">${CATEGORY_EMOJI[place.category] || "📍"} ${escapeHtml(place.name)}${place.city ? ` <span class="dc-city">· ${escapeHtml(cityLabel(place.city))}</span>` : ""}</div>
+            <div class="dc-name">${cat(place.category).emoji} ${escapeHtml(place.name)}${place.city ? ` <span class="dc-city">· ${escapeHtml(cityLabel(place.city))}</span>` : ""}</div>
             <div class="dc-votes">👍 ${voteCount(place)} · <a class="edit-link" href="#" data-action="edit" data-id="${place.id}">edit</a></div>
           </div>
         `).join("")}
