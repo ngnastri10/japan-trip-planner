@@ -31,7 +31,9 @@ function cat(key) { return CATEGORIES[key] || CATEGORIES.other; }
 const CITIES = {
   tokyo: { label: "Tokyo", lat: 35.6852, lng: 139.7528, zoom: 11 },
   kyoto: { label: "Kyoto", lat: 35.0116, lng: 135.7681, zoom: 12 },
-  osaka: { label: "Osaka", lat: 34.6937, lng: 135.5023, zoom: 12 }
+  osaka: { label: "Osaka", lat: 34.6937, lng: 135.5023, zoom: 12 },
+  seoul: { label: "Seoul", lat: 37.5665, lng: 126.9780, zoom: 11 },
+  busan: { label: "Busan", lat: 35.1796, lng: 129.0756, zoom: 11 }
 };
 function cityLabel(key) { return (CITIES[key] && CITIES[key].label) || ""; }
 

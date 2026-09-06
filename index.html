@@ -14,7 +14,7 @@
 <!-- ?v= is a cache-buster: niconastri.com sits behind Cloudflare, which caches
      static files for hours per edge location. Bump this number any time a
      CSS change needs to show up immediately instead of waiting on that. -->
-<link rel="stylesheet" href="css/style.css?v=6">
+<link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 
@@ -27,6 +27,8 @@
     <button class="city-btn" data-city="tokyo">Tokyo</button>
     <button class="city-btn" data-city="kyoto">Kyoto</button>
     <button class="city-btn" data-city="osaka">Osaka</button>
+    <button class="city-btn" data-city="seoul">Seoul</button>
+    <button class="city-btn" data-city="busan">Busan</button>
   </nav>
   <nav class="tabs">
     <button class="tab-btn active" data-view="map">Map</button>
@@ -70,6 +72,8 @@
         <option value="tokyo">Tokyo</option>
         <option value="kyoto">Kyoto</option>
         <option value="osaka">Osaka</option>
+        <option value="seoul">Seoul</option>
+        <option value="busan">Busan</option>
       </select>
       <select id="list-filter-category">
         <option value="">All categories</option>
@@ -101,6 +105,8 @@
         <option value="tokyo">Tokyo</option>
         <option value="kyoto">Kyoto</option>
         <option value="osaka">Osaka</option>
+        <option value="seoul">Seoul</option>
+        <option value="busan">Busan</option>
       </select>
     </div>
     <div id="itinerary-board" class="itinerary-board"></div>
@@ -126,6 +132,8 @@
           <option value="tokyo">Tokyo</option>
           <option value="kyoto">Kyoto</option>
           <option value="osaka">Osaka</option>
+          <option value="seoul">Seoul</option>
+          <option value="busan">Busan</option>
         </select>
       </label>
       <label>Category
@@ -179,6 +187,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/main.js?v=6"></script>
+<script type="module" src="js/main.js?v=7"></script>
 </body>
 </html>
