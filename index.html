@@ -14,7 +14,7 @@
 <!-- ?v= is a cache-buster: niconastri.com sits behind Cloudflare, which caches
      static files for hours per edge location. Bump this number any time a
      CSS change needs to show up immediately instead of waiting on that. -->
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 
@@ -121,6 +121,10 @@
   <div class="modal-card">
     <h2 id="place-modal-title">Add a place</h2>
     <form id="place-form">
+      <label>Got a Google Maps link? Paste it to auto-fill the location
+        <input type="text" id="pf-gmaps-link" placeholder="https://maps.google.com/...">
+      </label>
+      <div id="pf-gmaps-status" class="gmaps-status hidden"></div>
       <label>Name
         <input type="text" id="pf-name" required placeholder="e.g. Fushimi Inari Shrine">
       </label>
@@ -183,6 +187,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/main.js?v=3"></script>
+<script type="module" src="js/main.js?v=4"></script>
 </body>
 </html>

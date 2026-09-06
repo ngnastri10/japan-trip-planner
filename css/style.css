@@ -328,6 +328,15 @@ main { height: calc(100% - 57px); }
   font-family: inherit;
 }
 .coord-row { font-size: 0.8rem; color: var(--ink-soft); margin-top: 10px; }
+
+.gmaps-status {
+  font-size: 0.8rem;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+.gmaps-status.ok { background: #e5f3ee; color: var(--accent2); }
+.gmaps-status.fail { background: var(--accent-soft); color: var(--accent); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 .btn-primary, .btn-secondary, .btn-danger {

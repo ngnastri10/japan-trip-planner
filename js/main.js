@@ -494,6 +494,10 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
     f.lat.value = lat ?? "";
     f.lng.value = lng ?? "";
   }
+  document.getElementById("pf-gmaps-link").value = "";
+  const gmapsStatus = document.getElementById("pf-gmaps-status");
+  gmapsStatus.className = "gmaps-status hidden";
+
   updateCoordsDisplay();
   openModal("place-modal");
   f.name.focus();
@@ -521,7 +525,61 @@ function updateCoordsDisplay() {
   }
 }
 
+// Pulls coordinates (and a name, if present) out of a pasted Google Maps
+// URL. Long-format links only — Google's short links (maps.app.goo.gl,
+// goo.gl/maps) resolve server-side and can't be read from a static page with
+// no backend, so those are explicitly reported as unsupported rather than
+// silently failing.
+function parseGoogleMapsUrl(url) {
+  if (/goo\.gl\/maps|maps\.app\.goo\.gl/.test(url)) {
+    return { error: "That's a shortened Google Maps link, which can't be read directly. Open it once so the address bar shows the full maps.google.com URL, then paste that instead — or just click the spot on the map." };
+  }
+  // A share link's !3d<lat>!4d<lng> is the actual pin location; the @lat,lng
+  // earlier in the same URL is just wherever the map view happened to be
+  // centered, which can be a bit off. Prefer !3d/!4d when both are present.
+  let m = url.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+  if (!m) m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (!m) m = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (!m) return { error: "Couldn't find coordinates in that link — try clicking the spot on the map instead." };
+
+  const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return { error: "Couldn't find coordinates in that link — try clicking the spot on the map instead." };
+
+  let name = null;
+  const nameMatch = url.match(/\/place\/([^/@]+)/);
+  if (nameMatch) {
+    try { name = decodeURIComponent(nameMatch[1].replace(/\+/g, " ")); } catch (e) { /* leave name null */ }
+  }
+  return { lat, lng, name };
+}
+
+function initGmapsLinkPaste() {
+  const input = document.getElementById("pf-gmaps-link");
+  const status = document.getElementById("pf-gmaps-status");
+  input.addEventListener("input", () => {
+    const url = input.value.trim();
+    if (!url) { status.className = "gmaps-status hidden"; return; }
+
+    const result = parseGoogleMapsUrl(url);
+    if (result.error) {
+      status.textContent = "⚠️ " + result.error;
+      status.className = "gmaps-status fail";
+      return;
+    }
+
+    const f = fieldRefs();
+    f.lat.value = result.lat;
+    f.lng.value = result.lng;
+    updateCoordsDisplay();
+    if (result.name && !f.name.value.trim()) f.name.value = result.name;
+
+    status.textContent = "✅ Location set from link" + (result.name ? ` — "${result.name}"` : "") + ". Fill in the rest below.";
+    status.className = "gmaps-status ok";
+  });
+}
+
 function initPlaceForm() {
+  initGmapsLinkPaste();
   document.getElementById("place-modal-cancel").addEventListener("click", () => closeModal("place-modal"));
 
   document.getElementById("place-form").addEventListener("submit", async (e) => {
