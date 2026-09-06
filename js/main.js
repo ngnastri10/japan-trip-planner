@@ -234,6 +234,18 @@ function renderNeighborhoods() {
     layer.on("click", () => layer.setStyle({ fillOpacity: NBHD_HOVER_OPACITY, weight: 3 }));
 
     layer.addTo(neighborhoodLayer);
+
+    // Always-visible name label (not just on hover). labelLat/labelLng is a
+    // point precomputed to fall inside the actual shape, even after carving.
+    L.marker([n.labelLat, n.labelLng], {
+      icon: L.divIcon({
+        className: "nbhd-label",
+        html: escapeHtml(n.name),
+        iconSize: [140, 14],
+        iconAnchor: [70, 7] // box is wider than most names on purpose — text-align:center
+      }),                    // keeps it truly centered even where it overflows the box
+      interactive: false
+    }).addTo(neighborhoodLayer);
   });
 
   const checkbox = document.getElementById("toggle-neighborhoods");

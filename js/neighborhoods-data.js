@@ -2,6 +2,8 @@
 // source "osm": a real OpenStreetMap boundary (historic district, ward, or islet).
 // source "approx": no official boundary exists for this area, so this is a
 // hand-drawn approximate outline sized from a typical walkable-district radius.
+// labelLat/labelLng: a point guaranteed to fall inside the shape (even after
+// carving), used to place the always-visible name label.
 export const NEIGHBORHOODS = [
  {
   "name": "Arashiyama",
@@ -99,7 +101,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.018833,
+  "labelLng": 135.670181
  },
  {
   "name": "Fushimi",
@@ -197,7 +201,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 34.966696,
+  "labelLng": 135.777621
  },
  {
   "name": "Gion",
@@ -671,7 +677,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.004658,
+  "labelLng": 135.778392
  },
  {
   "name": "Nishijin",
@@ -769,7 +777,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.027954,
+  "labelLng": 135.7535
  },
  {
   "name": "Higashiyama",
@@ -1794,7 +1804,9 @@ export const NEIGHBORHOODS = [
      ]
     ]
    }
-  ]
+  ],
+  "labelLat": 34.991958,
+  "labelLng": 135.774357
  },
  {
   "name": "Uji",
@@ -1892,7 +1904,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 34.888672,
+  "labelLng": 135.796763
  },
  {
   "name": "Kibune",
@@ -1990,7 +2004,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.123065,
+  "labelLng": 135.765076
  },
  {
   "name": "Nishiki / Kawaramachi",
@@ -2223,7 +2239,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.001507,
+  "labelLng": 135.761941
  },
  {
   "name": "Philosopher's Path / Ginkaku-ji",
@@ -2321,7 +2339,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.021325,
+  "labelLng": 135.791874
  },
  {
   "name": "Shibuya",
@@ -2455,7 +2475,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.660451,
+  "labelLng": 139.70064
  },
  {
   "name": "Shinjuku",
@@ -2585,7 +2607,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.688361,
+  "labelLng": 139.704715
  },
  {
   "name": "Asakusa",
@@ -2691,7 +2715,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.716679,
+  "labelLng": 139.79855
  },
  {
   "name": "Harajuku",
@@ -2789,7 +2815,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.672244,
+  "labelLng": 139.703711
  },
  {
   "name": "Omotesando",
@@ -2887,7 +2915,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.666775,
+  "labelLng": 139.707316
  },
  {
   "name": "Ginza",
@@ -3017,7 +3047,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.670299,
+  "labelLng": 139.764963
  },
  {
   "name": "Toyosu",
@@ -3115,7 +3147,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.643087,
+  "labelLng": 139.783114
  },
  {
   "name": "Tsukiji",
@@ -3229,7 +3263,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.665104,
+  "labelLng": 139.771181
  },
  {
   "name": "Sumida / Skytree",
@@ -3327,7 +3363,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.709222,
+  "labelLng": 139.808468
  },
  {
   "name": "Roppongi",
@@ -3617,7 +3655,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.662677,
+  "labelLng": 139.732739
  },
  {
   "name": "Akihabara",
@@ -3715,7 +3755,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.700261,
+  "labelLng": 139.768862
  },
  {
   "name": "Nakano",
@@ -3813,7 +3855,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.70982,
+  "labelLng": 139.665426
  },
  {
   "name": "Ueno",
@@ -3911,7 +3955,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.712935,
+  "labelLng": 139.772759
  },
  {
   "name": "Jimbocho",
@@ -4009,7 +4055,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.69527,
+  "labelLng": 139.758011
  },
  {
   "name": "Yanaka",
@@ -4259,7 +4307,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.724906,
+  "labelLng": 139.769215
  },
  {
   "name": "Nakameguro",
@@ -4357,7 +4407,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.639205,
+  "labelLng": 139.701227
  },
  {
   "name": "Daikanyama",
@@ -4455,7 +4507,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.649982,
+  "labelLng": 139.705967
  },
  {
   "name": "Aoyama",
@@ -4561,7 +4615,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.669196,
+  "labelLng": 139.721468
  },
  {
   "name": "Shimokitazawa",
@@ -4659,7 +4715,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.666298,
+  "labelLng": 139.671542
  },
  {
   "name": "Koenji",
@@ -4757,7 +4815,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.708431,
+  "labelLng": 139.645697
  },
  {
   "name": "Jindaiji",
@@ -4855,7 +4915,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.666968,
+  "labelLng": 139.545526
  },
  {
   "name": "Akasaka",
@@ -5025,7 +5087,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.671189,
+  "labelLng": 139.73524
  },
  {
   "name": "Ebisu",
@@ -5139,7 +5203,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.647148,
+  "labelLng": 139.710251
  },
  {
   "name": "Ikebukuro",
@@ -5237,7 +5303,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.728841,
+  "labelLng": 139.70911
  },
  {
   "name": "Nihonbashi",
@@ -5291,7 +5359,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.681756,
+  "labelLng": 139.774298
  },
  {
   "name": "Marunouchi",
@@ -5373,7 +5443,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.679968,
+  "labelLng": 139.764934
  },
  {
   "name": "Kagurazaka",
@@ -5587,7 +5659,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.701253,
+  "labelLng": 139.740951
  },
  {
   "name": "Kichijoji",
@@ -5685,7 +5759,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.702654,
+  "labelLng": 139.578041
  },
  {
   "name": "Odaiba",
@@ -5939,7 +6015,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.619003,
+  "labelLng": 139.779351
  },
  {
   "name": "Sangenjaya",
@@ -6041,7 +6119,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.640957,
+  "labelLng": 139.66764
  },
  {
   "name": "Ryogoku",
@@ -6139,7 +6219,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.696298,
+  "labelLng": 139.791925
  },
  {
   "name": "Shirokanedai",
@@ -6417,7 +6499,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.637028,
+  "labelLng": 139.72462
  },
  {
   "name": "Yoyogi",
@@ -6515,7 +6599,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.683299,
+  "labelLng": 139.703576
  },
  {
   "name": "Pontocho",
@@ -6613,7 +6699,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.009277,
+  "labelLng": 135.770631
  },
  {
   "name": "Kiyomizu-dera / Sannenzaka",
@@ -6711,7 +6799,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 34.995892,
+  "labelLng": 135.778918
  },
  {
   "name": "Ohara",
@@ -6809,7 +6899,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.119007,
+  "labelLng": 135.829061
  },
  {
   "name": "Kurama",
@@ -6903,7 +6995,9 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.117734,
+  "labelLng": 135.770077
  },
  {
   "name": "Kitano",
@@ -7001,6 +7095,8 @@ export const NEIGHBORHOODS = [
     ],
     "holes": []
    }
-  ]
+  ],
+  "labelLat": 35.028972,
+  "labelLng": 135.73266
  }
 ];
