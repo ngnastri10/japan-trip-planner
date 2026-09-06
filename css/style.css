@@ -136,6 +136,26 @@ main { height: calc(100% - 57px); }
 .cat-filter-row:hover { background: var(--paper); }
 .cat-filter-row input { cursor: pointer; }
 
+.cat-filter-actions {
+  display: flex;
+  gap: 6px;
+  padding: 2px 4px 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.cat-filter-actions button {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--accent2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.cat-filter-actions button:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
 .nbhd-toggle {
   display: inline-flex;
   align-items: center;

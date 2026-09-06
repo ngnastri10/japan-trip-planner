@@ -311,27 +311,47 @@ function initCategoryFilter() {
   const label = document.getElementById("cat-filter-label");
   const panel = document.getElementById("cat-filter-panel");
 
-  panel.innerHTML = Object.keys(CATEGORIES).map(key => {
-    const c = CATEGORIES[key];
-    return `
-      <label class="cat-filter-row">
-        <input type="checkbox" data-cat="${key}" checked>
-        <span style="color:${c.color}">${c.emoji} ${escapeHtml(c.label)}</span>
-      </label>`;
-  }).join("");
+  panel.innerHTML = `
+    <div class="cat-filter-actions">
+      <button type="button" id="cat-filter-all">Select all</button>
+      <button type="button" id="cat-filter-none">Deselect all</button>
+    </div>
+    ${Object.keys(CATEGORIES).map(key => {
+      const c = CATEGORIES[key];
+      return `
+        <label class="cat-filter-row">
+          <input type="checkbox" data-cat="${key}" checked>
+          <span style="color:${c.color}">${c.emoji} ${escapeHtml(c.label)}</span>
+        </label>`;
+    }).join("")}`;
+
+  const checkboxes = panel.querySelectorAll("input[type=checkbox]");
 
   function updateLabel() {
     const total = Object.keys(CATEGORIES).length;
-    label.textContent = activeCategories.size === total ? "All categories" : `${activeCategories.size} categor${activeCategories.size === 1 ? "y" : "ies"}`;
+    label.textContent = activeCategories.size === total ? "All categories"
+      : activeCategories.size === 0 ? "No categories"
+      : `${activeCategories.size} categor${activeCategories.size === 1 ? "y" : "ies"}`;
   }
 
-  panel.querySelectorAll("input[type=checkbox]").forEach(cb => {
+  checkboxes.forEach(cb => {
     cb.addEventListener("change", () => {
       if (cb.checked) activeCategories.add(cb.dataset.cat);
       else activeCategories.delete(cb.dataset.cat);
       updateLabel();
       renderMarkers();
     });
+  });
+
+  document.getElementById("cat-filter-all").addEventListener("click", () => {
+    checkboxes.forEach(cb => { cb.checked = true; activeCategories.add(cb.dataset.cat); });
+    updateLabel();
+    renderMarkers();
+  });
+  document.getElementById("cat-filter-none").addEventListener("click", () => {
+    checkboxes.forEach(cb => { cb.checked = false; activeCategories.delete(cb.dataset.cat); });
+    updateLabel();
+    renderMarkers();
   });
 
   btn.addEventListener("click", () => panel.classList.toggle("hidden"));
