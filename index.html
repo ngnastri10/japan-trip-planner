@@ -14,7 +14,7 @@
 <!-- ?v= is a cache-buster: niconastri.com sits behind Cloudflare, which caches
      static files for hours per edge location. Bump this number any time a
      CSS change needs to show up immediately instead of waiting on that. -->
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 
@@ -48,18 +48,10 @@
         <div id="search-results" class="search-results hidden"></div>
       </div>
       <div class="filter-wrap">
-        <select id="filter-category">
-          <option value="">All categories</option>
-          <option value="food">🍜 Food</option>
-          <option value="cafe">☕ Café / Tea</option>
-          <option value="bar">🍸 Bar</option>
-          <option value="temple">🏯 Temple / Shrine</option>
-          <option value="nature">🌳 Nature / Park</option>
-          <option value="shopping">🛍️ Shopping</option>
-          <option value="culture">🎌 Culture / Museum</option>
-          <option value="activity">🧭 Activity / Sights</option>
-          <option value="other">📍 Other</option>
-        </select>
+        <button type="button" id="cat-filter-btn" class="cat-filter-btn">
+          <span id="cat-filter-label">All categories</span> ▾
+        </button>
+        <div id="cat-filter-panel" class="cat-filter-panel hidden"></div>
       </div>
       <label class="nbhd-toggle">
         <input type="checkbox" id="toggle-neighborhoods" checked>
@@ -187,6 +179,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/main.js?v=4"></script>
+<script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>

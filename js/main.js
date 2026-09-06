@@ -300,14 +300,50 @@ function startApp() {
     showToast("Couldn't load data — check Firestore rules / config.");
   });
 
-  document.getElementById("filter-category").addEventListener("change", renderMarkers);
+  initCategoryFilter();
+}
+
+// Every category starts checked (on) — unchecking one hides its markers.
+const activeCategories = new Set(Object.keys(CATEGORIES));
+
+function initCategoryFilter() {
+  const btn = document.getElementById("cat-filter-btn");
+  const label = document.getElementById("cat-filter-label");
+  const panel = document.getElementById("cat-filter-panel");
+
+  panel.innerHTML = Object.keys(CATEGORIES).map(key => {
+    const c = CATEGORIES[key];
+    return `
+      <label class="cat-filter-row">
+        <input type="checkbox" data-cat="${key}" checked>
+        <span style="color:${c.color}">${c.emoji} ${escapeHtml(c.label)}</span>
+      </label>`;
+  }).join("");
+
+  function updateLabel() {
+    const total = Object.keys(CATEGORIES).length;
+    label.textContent = activeCategories.size === total ? "All categories" : `${activeCategories.size} categor${activeCategories.size === 1 ? "y" : "ies"}`;
+  }
+
+  panel.querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.addEventListener("change", () => {
+      if (cb.checked) activeCategories.add(cb.dataset.cat);
+      else activeCategories.delete(cb.dataset.cat);
+      updateLabel();
+      renderMarkers();
+    });
+  });
+
+  btn.addEventListener("click", () => panel.classList.toggle("hidden"));
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".filter-wrap")) panel.classList.add("hidden");
+  });
 }
 
 function renderMarkers() {
   markerLayer.clearLayers();
-  const filter = document.getElementById("filter-category").value;
   placesById.forEach(place => {
-    if (filter && place.category !== filter) return;
+    if (!activeCategories.has(place.category)) return;
     if (place.lat == null || place.lng == null) return;
     const marker = L.marker([place.lat, place.lng], { icon: makeDivIcon(place.category) });
     marker.bindPopup(buildPopupHTML(place));

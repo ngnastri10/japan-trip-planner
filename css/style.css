@@ -90,7 +90,7 @@ main { height: calc(100% - 57px); }
   flex-wrap: wrap;
 }
 .search-wrap { position: relative; flex: 1; min-width: 220px; }
-#place-search, .filter-wrap select, #list-filter-category, #list-sort {
+#place-search, #list-filter-category, #list-sort {
   width: 100%;
   padding: 9px 12px;
   border: 1px solid var(--border);
@@ -98,7 +98,43 @@ main { height: calc(100% - 57px); }
   font-size: 0.95rem;
   background: var(--paper);
 }
-.filter-wrap select { min-width: 170px; }
+
+.filter-wrap { position: relative; }
+.cat-filter-btn {
+  min-width: 170px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.cat-filter-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 900;
+}
+.cat-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.cat-filter-row:hover { background: var(--paper); }
+.cat-filter-row input { cursor: pointer; }
 
 .nbhd-toggle {
   display: inline-flex;
