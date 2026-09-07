@@ -220,10 +220,17 @@ function initMap() {
   ]);
   // Esri has no real street-level data for South Korea (see the CITIES
   // comment above), so Seoul/Busan use plain OpenStreetMap instead — full
-  // detail there, Korean-only tile labels as the tradeoff.
+  // detail there, Korean-only tile labels as the tradeoff. OSM's default
+  // style is full-color, which competes visually with the pins/neighborhoods
+  // it's meant to show off, so it renders in its own pane with a grayscale
+  // filter (roughly matching how muted the Esri style is) rather than the
+  // shared default tile pane Esri uses.
+  map.createPane("osmPane");
+  map.getPane("osmPane").style.filter = "grayscale(90%)";
   baseTileSets.osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     subdomains: "abc",
+    pane: "osmPane",
     attribution: "&copy; OpenStreetMap contributors"
   });
   baseTileSets.esri.addTo(map);
