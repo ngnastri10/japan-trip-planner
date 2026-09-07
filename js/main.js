@@ -255,19 +255,28 @@ function initMap() {
 // ---------------------------------------------------------------------------
 const NBHD_REST_OPACITY = 0.16;
 const NBHD_HOVER_OPACITY = 0.5;
+// The Korea cities render on a grayscaled base (see setBaseTiles/"osmPane") --
+// the same fill opacity that pops nicely on Esri's pale backdrop reads as
+// nearly invisible against that darker gray, so those get a stronger wash.
+const NBHD_REST_OPACITY_KOREA = 0.32;
+const NBHD_HOVER_OPACITY_KOREA = 0.6;
 let neighborhoodLayer;
 
 function renderNeighborhoods() {
   neighborhoodLayer = L.layerGroup();
 
   NEIGHBORHOODS.forEach(n => {
+    const isKorea = n.city === "seoul" || n.city === "busan";
+    const restOpacity = isKorea ? NBHD_REST_OPACITY_KOREA : NBHD_REST_OPACITY;
+    const hoverOpacity = isKorea ? NBHD_HOVER_OPACITY_KOREA : NBHD_HOVER_OPACITY;
+
     const rings = n.parts.map(p => [p.outer, ...p.holes]);
     const layer = L.polygon(rings, {
       color: n.color,
       weight: 2,
       opacity: 0.75,
       fillColor: n.color,
-      fillOpacity: NBHD_REST_OPACITY,
+      fillOpacity: restOpacity,
       bubblingMouseEvents: false // clicking a shaded area shows its info, not the "add place" form
     });
 
@@ -275,9 +284,9 @@ function renderNeighborhoods() {
       `<b>${escapeHtml(n.name)}</b>${escapeHtml(n.desc)}`,
       { className: "nbhd-tip", sticky: true }
     );
-    layer.on("mouseover", () => layer.setStyle({ fillOpacity: NBHD_HOVER_OPACITY, weight: 3 }));
-    layer.on("mouseout", () => layer.setStyle({ fillOpacity: NBHD_REST_OPACITY, weight: 2 }));
-    layer.on("click", () => layer.setStyle({ fillOpacity: NBHD_HOVER_OPACITY, weight: 3 }));
+    layer.on("mouseover", () => layer.setStyle({ fillOpacity: hoverOpacity, weight: 3 }));
+    layer.on("mouseout", () => layer.setStyle({ fillOpacity: restOpacity, weight: 2 }));
+    layer.on("click", () => layer.setStyle({ fillOpacity: hoverOpacity, weight: 3 }));
 
     layer.addTo(neighborhoodLayer);
 
