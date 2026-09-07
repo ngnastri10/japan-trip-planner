@@ -172,23 +172,20 @@ main { height: calc(100% - 57px); }
 .overlay-toggle-thumb {
   position: absolute;
   top: 3px;
-  left: 3px;
   bottom: 3px;
-  width: calc((100% - 6px) / 3);
+  left: 3px;   /* left/width are set inline by JS (positionOverlayThumb) to match
+                  whichever button is active -- each label is a different length
+                  ("Off" vs "Neighborhoods"), so a fixed CSS 1/3 split can't track
+                  that; this lets the pill itself resize as it slides. */
+  width: 0;
   background: var(--accent2);
   border-radius: 999px;
-  transition: transform 0.22s cubic-bezier(.4,0,.2,1);
+  transition: left 0.22s cubic-bezier(.4,0,.2,1), width 0.22s cubic-bezier(.4,0,.2,1);
 }
-.overlay-toggle[data-active="1"] .overlay-toggle-thumb { transform: translateX(100%); }
-.overlay-toggle[data-active="2"] .overlay-toggle-thumb { transform: translateX(200%); }
 .overlay-toggle-opt {
   position: relative;
   z-index: 1;
-  flex: 1 1 0;           /* forces all three segments to equal width, matching the
-                             thumb's fixed 1/3 -- without this each button sizes to
-                             its own text ("Off" narrow, "Neighborhoods" wide) and
-                             drifts out of sync with the thumb underneath it */
-  text-align: center;
+  flex: 0 0 auto;    /* natural width per label -- the thumb resizes to match, not the reverse */
   border: none;
   background: transparent;
   color: var(--ink-soft);

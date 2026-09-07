@@ -335,6 +335,19 @@ function buildOverlayLayer(entries, opts) {
 const OVERLAY_MODES = ["off", "neighborhoods", "zones"];
 let overlayMode = "neighborhoods";
 
+// Slides (and resizes) the highlight pill to sit exactly under whichever
+// button is active. The three labels are different lengths ("Off" vs.
+// "Neighborhoods"), so this measures the real button box each time rather
+// than assuming a fixed one-third split.
+function positionOverlayThumb(mode) {
+  const toggle = document.getElementById("overlay-toggle");
+  const thumb = toggle.querySelector(".overlay-toggle-thumb");
+  const btn = toggle.querySelector(`.overlay-toggle-opt[data-mode="${mode}"]`);
+  if (!btn) return;
+  thumb.style.left = btn.offsetLeft + "px";
+  thumb.style.width = btn.offsetWidth + "px";
+}
+
 function setOverlayMode(mode) {
   if (!OVERLAY_MODES.includes(mode)) return;
   overlayMode = mode;
@@ -348,6 +361,7 @@ function setOverlayMode(mode) {
   toggle.querySelectorAll(".overlay-toggle-opt").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.mode === mode);
   });
+  positionOverlayThumb(mode);
 }
 
 function initOverlayToggle() {
@@ -355,6 +369,9 @@ function initOverlayToggle() {
   toggle.querySelectorAll(".overlay-toggle-opt").forEach(btn => {
     btn.addEventListener("click", () => setOverlayMode(btn.dataset.mode));
   });
+  // Button widths can change (e.g. the small-screen media query shrinks their
+  // padding/font-size), so re-measure and reposition the thumb on resize.
+  window.addEventListener("resize", () => positionOverlayThumb(overlayMode));
   setOverlayMode(overlayMode); // applies the default now that both layers exist
 }
 
