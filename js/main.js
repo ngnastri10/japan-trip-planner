@@ -11,7 +11,10 @@ import {
   getFirestore, collection, addDoc, updateDoc, deleteDoc, doc,
   onSnapshot, serverTimestamp, deleteField
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { NEIGHBORHOODS } from "./neighborhoods-data.js";
+// The ?v= here is its own cache-buster, separate from main.js's -- this file
+// is reached via this import path directly, not the <script v=> in index.html,
+// so bumping that alone doesn't force Cloudflare to refetch this one.
+import { NEIGHBORHOODS } from "./neighborhoods-data.js?v=2";
 
 const CATEGORIES = {
   food:     { emoji: "🍜", label: "Food",             color: "#e08e0b" },
@@ -226,6 +229,12 @@ function initMap() {
   // filter (roughly matching how muted the Esri style is) rather than the
   // shared default tile pane Esri uses.
   map.createPane("osmPane");
+  // A custom pane gets no z-index by default, which left it free to paint
+  // above the neighborhood/marker panes once the DOM settled (only briefly
+  // showing them in the correct order during a zoom transform) -- pin it to
+  // the same z-index as Leaflet's own tile pane so it unambiguously sits
+  // below everything at every point, not just mid-animation.
+  map.getPane("osmPane").style.zIndex = 200;
   map.getPane("osmPane").style.filter = "grayscale(90%)";
   baseTileSets.osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -258,8 +267,8 @@ const NBHD_HOVER_OPACITY = 0.5;
 // The Korea cities render on a grayscaled base (see setBaseTiles/"osmPane") --
 // the same fill opacity that pops nicely on Esri's pale backdrop reads as
 // nearly invisible against that darker gray, so those get a stronger wash.
-const NBHD_REST_OPACITY_KOREA = 0.32;
-const NBHD_HOVER_OPACITY_KOREA = 0.6;
+const NBHD_REST_OPACITY_KOREA = 0.55;
+const NBHD_HOVER_OPACITY_KOREA = 0.78;
 let neighborhoodLayer;
 
 function renderNeighborhoods() {
