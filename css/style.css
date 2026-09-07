@@ -184,6 +184,11 @@ main { height: calc(100% - 57px); }
 .overlay-toggle-opt {
   position: relative;
   z-index: 1;
+  flex: 1 1 0;           /* forces all three segments to equal width, matching the
+                             thumb's fixed 1/3 -- without this each button sizes to
+                             its own text ("Off" narrow, "Neighborhoods" wide) and
+                             drifts out of sync with the thumb underneath it */
+  text-align: center;
   border: none;
   background: transparent;
   color: var(--ink-soft);
