@@ -90,7 +90,7 @@ main { height: calc(100% - 57px); }
   flex-wrap: wrap;
 }
 .search-wrap { position: relative; flex: 1; min-width: 220px; }
-#place-search, #list-filter-city, #list-filter-person, #list-sort, #itinerary-filter-city {
+#place-search, #list-filter-city, #list-filter-zone, #list-filter-person, #list-sort, #itinerary-filter-city, #itinerary-filter-zone {
   width: 100%;
   padding: 9px 12px;
   border: 1px solid var(--border);
@@ -156,17 +156,46 @@ main { height: calc(100% - 57px); }
 }
 .cat-filter-actions button:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
-.nbhd-toggle {
+/* Off / Neighborhoods / Day Zones control -- deliberately NOT styled like the
+   .city-btn/.tab-btn pills above: those are page-level navigation, this is a
+   local map-tab display setting, so it reads as one joined track with a
+   sliding highlight rather than freestanding pill buttons. */
+.overlay-toggle {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.9rem;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  flex-shrink: 0;
 }
-.nbhd-toggle input { cursor: pointer; }
+.overlay-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  bottom: 3px;
+  width: calc((100% - 6px) / 3);
+  background: var(--accent2);
+  border-radius: 999px;
+  transition: transform 0.22s cubic-bezier(.4,0,.2,1);
+}
+.overlay-toggle[data-active="1"] .overlay-toggle-thumb { transform: translateX(100%); }
+.overlay-toggle[data-active="2"] .overlay-toggle-thumb { transform: translateX(200%); }
+.overlay-toggle-opt {
+  position: relative;
+  z-index: 1;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 7px 13px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+.overlay-toggle-opt.active { color: #fff; }
 
 .search-results {
   position: absolute;
@@ -449,4 +478,5 @@ main { height: calc(100% - 57px); }
   .city-nav { order: 2; width: 100%; justify-content: center; margin-top: 4px; }
   .tabs { order: 3; width: 100%; justify-content: center; margin-top: 6px; }
   .filter-wrap select { min-width: 130px; }
+  .overlay-toggle-opt { padding: 7px 9px; font-size: 0.76rem; }
 }

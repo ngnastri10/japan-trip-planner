@@ -14,7 +14,7 @@
 <!-- ?v= is a cache-buster: niconastri.com sits behind Cloudflare, which caches
      static files for hours per edge location. Bump this number any time a
      CSS change needs to show up immediately instead of waiting on that. -->
-<link rel="stylesheet" href="css/style.css?v=14">
+<link rel="stylesheet" href="css/style.css?v=15">
 </head>
 <body>
 
@@ -55,10 +55,12 @@
         </button>
         <div id="cat-filter-panel" class="cat-filter-panel hidden"></div>
       </div>
-      <label class="nbhd-toggle">
-        <input type="checkbox" id="toggle-neighborhoods" checked>
-        Neighborhoods
-      </label>
+      <div class="overlay-toggle" id="overlay-toggle" data-active="1">
+        <span class="overlay-toggle-thumb"></span>
+        <button type="button" class="overlay-toggle-opt" data-mode="off">Off</button>
+        <button type="button" class="overlay-toggle-opt active" data-mode="neighborhoods">Neighborhoods</button>
+        <button type="button" class="overlay-toggle-opt" data-mode="zones">Day Zones</button>
+      </div>
     </div>
     <div id="map"></div>
     <button id="fab-add" class="fab" title="Add a place">+</button>
@@ -74,6 +76,9 @@
         <option value="osaka">Osaka</option>
         <option value="seoul">Seoul</option>
         <option value="busan">Busan</option>
+      </select>
+      <select id="list-filter-zone" disabled>
+        <option value="">Pick a city for zones</option>
       </select>
       <div class="filter-wrap">
         <button type="button" id="list-cat-filter-btn" class="cat-filter-btn">
@@ -104,6 +109,9 @@
         <option value="osaka">Osaka</option>
         <option value="seoul">Seoul</option>
         <option value="busan">Busan</option>
+      </select>
+      <select id="itinerary-filter-zone" disabled>
+        <option value="">Pick a city for zones</option>
       </select>
     </div>
     <div id="itinerary-board" class="itinerary-board"></div>
@@ -191,6 +199,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/main.js?v=14"></script>
+<script type="module" src="js/main.js?v=15"></script>
 </body>
 </html>

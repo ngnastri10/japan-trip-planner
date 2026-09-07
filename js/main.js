@@ -15,6 +15,7 @@ import {
 // is reached via this import path directly, not the <script v=> in index.html,
 // so bumping that alone doesn't force Cloudflare to refetch this one.
 import { NEIGHBORHOODS } from "./neighborhoods-data.js?v=2";
+import { DAY_ZONES } from "./dayzones-data.js?v=1";
 
 const CATEGORIES = {
   food:     { emoji: "🍜", label: "Food",             color: "#e08e0b" },
@@ -245,7 +246,7 @@ function initMap() {
   baseTileSets.esri.addTo(map);
   currentTileSet = "esri";
   markerLayer = L.layerGroup().addTo(map);
-  renderNeighborhoods();
+  renderMapOverlays();
 
   // Click empty map => add a place at that spot
   map.on("click", (e) => {
@@ -258,9 +259,13 @@ function initMap() {
 }
 
 // ---------------------------------------------------------------------------
-// Neighborhood overlay — shaded outlines (real OSM boundary where one exists,
-// hand-drawn approximation otherwise; see neighborhoods-data.js). Purely a
-// visual/info layer on the Map tab — doesn't touch places, votes, or dates.
+// Map overlays — shaded outlines, either real neighborhoods (real OSM
+// boundary where one exists, hand-drawn approximation otherwise; see
+// neighborhoods-data.js) or the looser Day Zones that group several nearby
+// neighborhoods into "what you could do in one day" areas (dayzones-data.js).
+// Purely a visual/info layer on the Map tab — doesn't touch places, votes, or
+// dates. Only one of the two ever shows at once, via the overlay-toggle
+// control (see initOverlayToggle below) -- default is neighborhoods.
 // ---------------------------------------------------------------------------
 const NBHD_REST_OPACITY = 0.16;
 const NBHD_HOVER_OPACITY = 0.5;
@@ -269,35 +274,47 @@ const NBHD_HOVER_OPACITY = 0.5;
 // nearly invisible against that darker gray, so those get a stronger wash.
 const NBHD_REST_OPACITY_KOREA = 0.55;
 const NBHD_HOVER_OPACITY_KOREA = 0.78;
+
+// Zones cover much more area than a single neighborhood, so they run lighter
+// at rest (a big region at neighborhood-strength fill would swamp the map).
+const ZONE_REST_OPACITY = 0.12;
+const ZONE_HOVER_OPACITY = 0.32;
+const ZONE_REST_OPACITY_KOREA = 0.4;
+const ZONE_HOVER_OPACITY_KOREA = 0.6;
+
 let neighborhoodLayer;
+let zoneLayer;
 
-function renderNeighborhoods() {
-  neighborhoodLayer = L.layerGroup();
+// Shared by both the neighborhood layer and the day-zone layer -- same
+// shaded-polygon-plus-label-plus-hover behavior, just different data/opacity.
+function buildOverlayLayer(entries, opts) {
+  const { restOpacity, hoverOpacity, restOpacityKorea, hoverOpacityKorea, labelBox = [150, 14] } = opts;
+  const layer = L.layerGroup();
 
-  NEIGHBORHOODS.forEach(n => {
+  entries.forEach(n => {
     const isKorea = n.city === "seoul" || n.city === "busan";
-    const restOpacity = isKorea ? NBHD_REST_OPACITY_KOREA : NBHD_REST_OPACITY;
-    const hoverOpacity = isKorea ? NBHD_HOVER_OPACITY_KOREA : NBHD_HOVER_OPACITY;
+    const rest = isKorea ? restOpacityKorea : restOpacity;
+    const hover = isKorea ? hoverOpacityKorea : hoverOpacity;
 
-    const rings = n.parts.map(p => [p.outer, ...p.holes]);
-    const layer = L.polygon(rings, {
+    const rings = n.parts.map(p => [p.outer, ...(p.holes || [])]);
+    const poly = L.polygon(rings, {
       color: n.color,
       weight: 2,
       opacity: 0.75,
       fillColor: n.color,
-      fillOpacity: restOpacity,
+      fillOpacity: rest,
       bubblingMouseEvents: false // clicking a shaded area shows its info, not the "add place" form
     });
 
-    layer.bindTooltip(
+    poly.bindTooltip(
       `<b>${escapeHtml(n.name)}</b>${escapeHtml(n.desc)}`,
       { className: "nbhd-tip", sticky: true }
     );
-    layer.on("mouseover", () => layer.setStyle({ fillOpacity: hoverOpacity, weight: 3 }));
-    layer.on("mouseout", () => layer.setStyle({ fillOpacity: restOpacity, weight: 2 }));
-    layer.on("click", () => layer.setStyle({ fillOpacity: hoverOpacity, weight: 3 }));
+    poly.on("mouseover", () => poly.setStyle({ fillOpacity: hover, weight: 3 }));
+    poly.on("mouseout", () => poly.setStyle({ fillOpacity: rest, weight: 2 }));
+    poly.on("click", () => poly.setStyle({ fillOpacity: hover, weight: 3 }));
 
-    layer.addTo(neighborhoodLayer);
+    poly.addTo(layer);
 
     // Always-visible name label (not just on hover). labelLat/labelLng is a
     // point precomputed to fall inside the actual shape, even after carving.
@@ -305,19 +322,99 @@ function renderNeighborhoods() {
       icon: L.divIcon({
         className: "nbhd-label",
         html: escapeHtml(n.name),
-        iconSize: [140, 14],
-        iconAnchor: [70, 7] // box is wider than most names on purpose — text-align:center
-      }),                    // keeps it truly centered even where it overflows the box
-      interactive: false
-    }).addTo(neighborhoodLayer);
+        iconSize: labelBox,
+        iconAnchor: [labelBox[0] / 2, labelBox[1] / 2] // box is wider than most names on
+      }),                                                // purpose -- text-align:center keeps
+      interactive: false                                  // it truly centered past the overflow
+    }).addTo(layer);
   });
 
-  const checkbox = document.getElementById("toggle-neighborhoods");
-  if (checkbox.checked) neighborhoodLayer.addTo(map);
-  checkbox.addEventListener("change", () => {
-    if (checkbox.checked) neighborhoodLayer.addTo(map);
-    else map.removeLayer(neighborhoodLayer);
+  return layer;
+}
+
+const OVERLAY_MODES = ["off", "neighborhoods", "zones"];
+let overlayMode = "neighborhoods";
+
+function setOverlayMode(mode) {
+  if (!OVERLAY_MODES.includes(mode)) return;
+  overlayMode = mode;
+  if (neighborhoodLayer && map.hasLayer(neighborhoodLayer)) map.removeLayer(neighborhoodLayer);
+  if (zoneLayer && map.hasLayer(zoneLayer)) map.removeLayer(zoneLayer);
+  if (mode === "neighborhoods" && neighborhoodLayer) neighborhoodLayer.addTo(map);
+  if (mode === "zones" && zoneLayer) zoneLayer.addTo(map);
+
+  const toggle = document.getElementById("overlay-toggle");
+  toggle.dataset.active = String(OVERLAY_MODES.indexOf(mode));
+  toggle.querySelectorAll(".overlay-toggle-opt").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
   });
+}
+
+function initOverlayToggle() {
+  const toggle = document.getElementById("overlay-toggle");
+  toggle.querySelectorAll(".overlay-toggle-opt").forEach(btn => {
+    btn.addEventListener("click", () => setOverlayMode(btn.dataset.mode));
+  });
+  setOverlayMode(overlayMode); // applies the default now that both layers exist
+}
+
+function renderMapOverlays() {
+  neighborhoodLayer = buildOverlayLayer(NEIGHBORHOODS, {
+    restOpacity: NBHD_REST_OPACITY, hoverOpacity: NBHD_HOVER_OPACITY,
+    restOpacityKorea: NBHD_REST_OPACITY_KOREA, hoverOpacityKorea: NBHD_HOVER_OPACITY_KOREA
+  });
+  zoneLayer = buildOverlayLayer(DAY_ZONES, {
+    restOpacity: ZONE_REST_OPACITY, hoverOpacity: ZONE_HOVER_OPACITY,
+    restOpacityKorea: ZONE_REST_OPACITY_KOREA, hoverOpacityKorea: ZONE_HOVER_OPACITY_KOREA,
+    labelBox: [180, 14]
+  });
+  initOverlayToggle();
+}
+
+// Ray-casting point-in-polygon test against one [lat,lng] ring.
+function pointInRing(lat, lng, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [latI, lngI] = ring[i];
+    const [latJ, lngJ] = ring[j];
+    const crosses = ((lngI > lng) !== (lngJ > lng)) &&
+      (lat < (latJ - latI) * (lng - lngI) / (lngJ - lngI) + latI);
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInZoneEntry(lat, lng, zone) {
+  return zone.parts.some(p =>
+    pointInRing(lat, lng, p.outer) && !(p.holes || []).some(h => pointInRing(lat, lng, h))
+  );
+}
+
+// Which of this city's Day Zones (by name) contain the given point. Zones are
+// deliberately loose and can overlap, so a place may match more than one --
+// this returns all matches rather than a single "owning" zone.
+function zonesForPoint(city, lat, lng) {
+  if (lat == null || lng == null) return [];
+  return DAY_ZONES.filter(z => z.city === city && pointInZoneEntry(lat, lng, z)).map(z => z.name);
+}
+
+// Rebuilds a zone <select>'s options for the given city (List/Itinerary tabs
+// each have their own). Zones only make sense within one city at a time, so
+// the dropdown is disabled until a specific city is chosen.
+function updateZoneFilterOptions(selectId, cityValue) {
+  const select = document.getElementById(selectId);
+  const current = select.value;
+  if (!cityValue) {
+    select.innerHTML = `<option value="">Pick a city for zones</option>`;
+    select.value = "";
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  const zones = DAY_ZONES.filter(z => z.city === cityValue);
+  select.innerHTML = `<option value="">All zones</option>` +
+    zones.map(z => `<option value="${escapeHtml(z.name)}">${escapeHtml(z.name)}</option>`).join("");
+  if (zones.some(z => z.name === current)) select.value = current;
 }
 
 function makeDivIcon(category) {
@@ -343,7 +440,12 @@ function startApp() {
   initSearch();
   initPlaceForm();
   initListControls();
-  document.getElementById("itinerary-filter-city").addEventListener("change", renderItinerary);
+  updateZoneFilterOptions("itinerary-filter-zone", document.getElementById("itinerary-filter-city").value);
+  document.getElementById("itinerary-filter-city").addEventListener("change", () => {
+    updateZoneFilterOptions("itinerary-filter-zone", document.getElementById("itinerary-filter-city").value);
+    renderItinerary();
+  });
+  document.getElementById("itinerary-filter-zone").addEventListener("change", renderItinerary);
 
   onSnapshot(collection(db, "places"), (snap) => {
     placesById.clear();
@@ -843,7 +945,12 @@ function initPlaceForm() {
 // ---------------------------------------------------------------------------
 function initListControls() {
   initListCategoryFilter();
-  document.getElementById("list-filter-city").addEventListener("change", renderList);
+  updateZoneFilterOptions("list-filter-zone", document.getElementById("list-filter-city").value);
+  document.getElementById("list-filter-city").addEventListener("change", () => {
+    updateZoneFilterOptions("list-filter-zone", document.getElementById("list-filter-city").value);
+    renderList();
+  });
+  document.getElementById("list-filter-zone").addEventListener("change", renderList);
   document.getElementById("list-filter-person").addEventListener("change", renderList);
   document.getElementById("list-sort").addEventListener("change", renderList);
   document.getElementById("list-add-btn").addEventListener("click", () => openPlaceModal({ mode: "add" }));
@@ -867,11 +974,13 @@ function renderList() {
   updatePersonFilterOptions();
   const container = document.getElementById("place-list");
   const cityFilter = document.getElementById("list-filter-city").value;
+  const zoneFilter = document.getElementById("list-filter-zone").value;
   const personFilter = document.getElementById("list-filter-person").value;
   const sortBy = document.getElementById("list-sort").value;
 
   let items = Array.from(placesById.values());
   if (cityFilter) items = items.filter(p => p.city === cityFilter);
+  if (zoneFilter) items = items.filter(p => zonesForPoint(p.city, p.lat, p.lng).includes(zoneFilter));
   items = items.filter(p => activeListCategories.has(p.category));
   if (personFilter) items = items.filter(p => p.addedBy === personFilter);
 
@@ -917,10 +1026,12 @@ function renderList() {
 function renderItinerary() {
   const board = document.getElementById("itinerary-board");
   const cityFilter = document.getElementById("itinerary-filter-city").value;
+  const zoneFilter = document.getElementById("itinerary-filter-zone").value;
   const groups = new Map(); // date ("" = unscheduled) -> [places]
 
   placesById.forEach(place => {
     if (cityFilter && place.city !== cityFilter) return;
+    if (zoneFilter && !zonesForPoint(place.city, place.lat, place.lng).includes(zoneFilter)) return;
     const key = place.date || "";
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(place);
