@@ -14,7 +14,7 @@
 <!-- ?v= is a cache-buster: niconastri.com sits behind Cloudflare, which caches
      static files for hours per edge location. Bump this number any time a
      CSS change needs to show up immediately instead of waiting on that. -->
-<link rel="stylesheet" href="css/style.css?v=13">
+<link rel="stylesheet" href="css/style.css?v=14">
 </head>
 <body>
 
@@ -75,18 +75,12 @@
         <option value="seoul">Seoul</option>
         <option value="busan">Busan</option>
       </select>
-      <select id="list-filter-category">
-        <option value="">All categories</option>
-        <option value="food">🍜 Food</option>
-        <option value="cafe">☕ Café / Tea</option>
-        <option value="bar">🍸 Bar</option>
-        <option value="temple">🏯 Temple / Shrine</option>
-        <option value="nature">🌳 Nature / Park</option>
-        <option value="shopping">🛍️ Shopping</option>
-        <option value="culture">🎌 Culture / Museum</option>
-        <option value="activity">🧭 Activity / Sights</option>
-        <option value="other">📍 Other</option>
-      </select>
+      <div class="filter-wrap">
+        <button type="button" id="list-cat-filter-btn" class="cat-filter-btn">
+          <span id="list-cat-filter-label">All categories</span> ▾
+        </button>
+        <div id="list-cat-filter-panel" class="cat-filter-panel hidden"></div>
+      </div>
       <select id="list-filter-person">
         <option value="">All people</option>
       </select>
@@ -197,6 +191,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/main.js?v=13"></script>
+<script type="module" src="js/main.js?v=14"></script>
 </body>
 </html>

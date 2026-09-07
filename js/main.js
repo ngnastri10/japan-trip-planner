@@ -359,18 +359,21 @@ function startApp() {
   initCategoryFilter();
 }
 
-// Every category starts checked (on) — unchecking one hides its markers.
-const activeCategories = new Set(Object.keys(CATEGORIES));
+// Every category starts checked (on) — unchecking one hides matching items.
+// Map and List each get their own independent set/panel, built by the same
+// factory below rather than duplicating this wiring per tab.
+const activeCategories = new Set(Object.keys(CATEGORIES));     // Map tab
+const activeListCategories = new Set(Object.keys(CATEGORIES)); // List tab
 
-function initCategoryFilter() {
-  const btn = document.getElementById("cat-filter-btn");
-  const label = document.getElementById("cat-filter-label");
-  const panel = document.getElementById("cat-filter-panel");
+function createCategoryFilter({ btnId, labelId, panelId, activeSet, onChange }) {
+  const btn = document.getElementById(btnId);
+  const label = document.getElementById(labelId);
+  const panel = document.getElementById(panelId);
 
   panel.innerHTML = `
     <div class="cat-filter-actions">
-      <button type="button" id="cat-filter-all">Select all</button>
-      <button type="button" id="cat-filter-none">Deselect all</button>
+      <button type="button" class="cf-all">Select all</button>
+      <button type="button" class="cf-none">Deselect all</button>
     </div>
     ${Object.keys(CATEGORIES).map(key => {
       const c = CATEGORIES[key];
@@ -385,34 +388,50 @@ function initCategoryFilter() {
 
   function updateLabel() {
     const total = Object.keys(CATEGORIES).length;
-    label.textContent = activeCategories.size === total ? "All categories"
-      : activeCategories.size === 0 ? "No categories"
-      : `${activeCategories.size} categor${activeCategories.size === 1 ? "y" : "ies"}`;
+    label.textContent = activeSet.size === total ? "All categories"
+      : activeSet.size === 0 ? "No categories"
+      : `${activeSet.size} categor${activeSet.size === 1 ? "y" : "ies"}`;
   }
 
   checkboxes.forEach(cb => {
     cb.addEventListener("change", () => {
-      if (cb.checked) activeCategories.add(cb.dataset.cat);
-      else activeCategories.delete(cb.dataset.cat);
+      if (cb.checked) activeSet.add(cb.dataset.cat);
+      else activeSet.delete(cb.dataset.cat);
       updateLabel();
-      renderMarkers();
+      onChange();
     });
   });
 
-  document.getElementById("cat-filter-all").addEventListener("click", () => {
-    checkboxes.forEach(cb => { cb.checked = true; activeCategories.add(cb.dataset.cat); });
+  panel.querySelector(".cf-all").addEventListener("click", () => {
+    checkboxes.forEach(cb => { cb.checked = true; activeSet.add(cb.dataset.cat); });
     updateLabel();
-    renderMarkers();
+    onChange();
   });
-  document.getElementById("cat-filter-none").addEventListener("click", () => {
-    checkboxes.forEach(cb => { cb.checked = false; activeCategories.delete(cb.dataset.cat); });
+  panel.querySelector(".cf-none").addEventListener("click", () => {
+    checkboxes.forEach(cb => { cb.checked = false; activeSet.delete(cb.dataset.cat); });
     updateLabel();
-    renderMarkers();
+    onChange();
   });
 
   btn.addEventListener("click", () => panel.classList.toggle("hidden"));
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".filter-wrap")) panel.classList.add("hidden");
+    if (!panel.classList.contains("hidden") && !panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      panel.classList.add("hidden");
+    }
+  });
+}
+
+function initCategoryFilter() {
+  createCategoryFilter({
+    btnId: "cat-filter-btn", labelId: "cat-filter-label", panelId: "cat-filter-panel",
+    activeSet: activeCategories, onChange: renderMarkers
+  });
+}
+
+function initListCategoryFilter() {
+  createCategoryFilter({
+    btnId: "list-cat-filter-btn", labelId: "list-cat-filter-label", panelId: "list-cat-filter-panel",
+    activeSet: activeListCategories, onChange: renderList
   });
 }
 
@@ -823,8 +842,8 @@ function initPlaceForm() {
 // 8. List view
 // ---------------------------------------------------------------------------
 function initListControls() {
+  initListCategoryFilter();
   document.getElementById("list-filter-city").addEventListener("change", renderList);
-  document.getElementById("list-filter-category").addEventListener("change", renderList);
   document.getElementById("list-filter-person").addEventListener("change", renderList);
   document.getElementById("list-sort").addEventListener("change", renderList);
   document.getElementById("list-add-btn").addEventListener("click", () => openPlaceModal({ mode: "add" }));
@@ -848,13 +867,12 @@ function renderList() {
   updatePersonFilterOptions();
   const container = document.getElementById("place-list");
   const cityFilter = document.getElementById("list-filter-city").value;
-  const filter = document.getElementById("list-filter-category").value;
   const personFilter = document.getElementById("list-filter-person").value;
   const sortBy = document.getElementById("list-sort").value;
 
   let items = Array.from(placesById.values());
   if (cityFilter) items = items.filter(p => p.city === cityFilter);
-  if (filter) items = items.filter(p => p.category === filter);
+  items = items.filter(p => activeListCategories.has(p.category));
   if (personFilter) items = items.filter(p => p.addedBy === personFilter);
 
   items.sort((a, b) => {
