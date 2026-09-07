@@ -346,6 +346,16 @@ main { height: calc(100% - 57px); }
 }
 .date-pill.unset { background: var(--border); color: var(--ink-soft); }
 .date-pill.city-pill { background: var(--accent); margin-right: 6px; }
+.price-pill {
+  display: inline-block;
+  background: #fdf3d9;   /* same gold/amber used for the wiki-autofill banner */
+  color: #7a5c00;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-right: 6px;
+}
 
 /* ---------- Itinerary view ---------- */
 .itinerary-board {
@@ -415,6 +425,11 @@ main { height: calc(100% - 57px); }
   font-family: inherit;
 }
 .coord-row { font-size: 0.8rem; color: var(--ink-soft); margin-top: 10px; }
+
+.price-row { display: flex; gap: 8px; }
+.price-row select { flex: 0 0 100px; width: auto; }
+.price-row input { flex: 1; width: auto; }
+.price-hint { display: block; font-size: 0.75rem; font-weight: 400; color: var(--ink-soft); margin-top: 4px; }
 
 .gmaps-status {
   font-size: 0.8rem;

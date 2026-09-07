@@ -47,6 +47,36 @@ const CITIES = {
 };
 function cityLabel(key) { return (CITIES[key] && CITIES[key].label) || ""; }
 
+// Smart default for the price-entry currency dropdown, based on city.
+const CURRENCY_FOR_CITY = { tokyo: "JPY", kyoto: "JPY", osaka: "JPY", seoul: "KRW", busan: "KRW" };
+
+// ---------------------------------------------------------------------------
+// Price / currency — prices are entered and stored in whatever currency was
+// actually paid, then converted to USD purely for display, everywhere a
+// place shows up (map popup, list card, itinerary card). Fixed, approximate
+// rates (checked ~Sept 2026) rather than a live FX API -- day-to-day
+// fluctuation is small enough that "close enough" is fine for trip budgeting.
+// ---------------------------------------------------------------------------
+const FX_PER_USD = { USD: 1, JPY: 156, KRW: 1345 };
+const CURRENCY_SYMBOL = { USD: "$", JPY: "¥", KRW: "₩" };
+
+function toUSD(amount, currency) {
+  const rate = FX_PER_USD[currency] || 1;
+  return amount / rate;
+}
+
+// Returns a display string like "≈$15" or null if this place has no price set.
+function formatPriceUSD(place) {
+  if (place.priceAmount == null || place.priceAmount === "" || !place.priceCurrency) return null;
+  const amount = Number(place.priceAmount);
+  if (Number.isNaN(amount)) return null;
+  const usd = toUSD(amount, place.priceCurrency);
+  // Whole dollars once it's not tiny -- this is a rough trip-budget figure,
+  // not an exact receipt, so cents past that point are just noise.
+  const rounded = usd >= 10 ? Math.round(usd) : Math.round(usd * 100) / 100;
+  return `≈$${rounded}`;
+}
+
 // ---------------------------------------------------------------------------
 // 0. Boot: load firebase-config.js (user-created from the .sample file).
 //    If it's missing or still has placeholder values, show a friendly
@@ -578,6 +608,7 @@ function buildPopupHTML(place) {
     <span class="popup-cat" style="color:${c.color}">${c.emoji} ${escapeHtml(c.label)}</span>
     <div class="popup-title">${escapeHtml(place.name)}</div>
     <div class="popup-meta">${place.city ? escapeHtml(cityLabel(place.city)) + " · " : ""}${dateStr}${place.addedBy ? " · added by " + escapeHtml(place.addedBy) : ""}</div>
+    ${formatPriceUSD(place) ? `<span class="price-pill">${formatPriceUSD(place)}</span>` : ""}
     ${place.notes ? `<div class="popup-notes">${escapeHtml(place.notes)}</div>` : ""}
     <div class="popup-actions">
       <button class="vote-btn ${voted ? "voted" : ""}" data-action="vote" data-id="${place.id}">👍 ${votes}</button>
@@ -735,6 +766,8 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
     f.date.value = place.date || "";
     f.lat.value = place.lat ?? "";
     f.lng.value = place.lng ?? "";
+    f.priceAmount.value = place.priceAmount ?? "";
+    f.priceCurrency.value = place.priceCurrency || CURRENCY_FOR_CITY[place.city] || "USD";
   } else {
     f.name.value = name;
     f.city.value = "";
@@ -743,7 +776,9 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
     f.date.value = "";
     f.lat.value = lat ?? "";
     f.lng.value = lng ?? "";
-  }
+    f.priceAmount.value = "";
+    f.priceCurrency.value = "USD"; // no city picked yet -- the city-change listener
+  }                                 // in initPlaceForm re-defaults this once one is
   document.getElementById("pf-gmaps-link").value = "";
   const gmapsStatus = document.getElementById("pf-gmaps-status");
   gmapsStatus.className = "gmaps-status hidden";
@@ -765,7 +800,9 @@ function fieldRefs() {
     notes: document.getElementById("pf-notes"),
     date: document.getElementById("pf-date"),
     lat: document.getElementById("pf-lat"),
-    lng: document.getElementById("pf-lng")
+    lng: document.getElementById("pf-lng"),
+    priceAmount: document.getElementById("pf-price-amount"),
+    priceCurrency: document.getElementById("pf-price-currency")
   };
 }
 
@@ -899,6 +936,16 @@ function initPlaceForm() {
   initWikiAutofill();
   document.getElementById("place-modal-cancel").addEventListener("click", () => closeModal("place-modal"));
 
+  // Re-default the price currency to match whichever city gets picked --
+  // but only while the amount is still blank, so it never clobbers a
+  // currency the user already deliberately chose alongside a real number.
+  document.getElementById("pf-city").addEventListener("change", () => {
+    const amountField = document.getElementById("pf-price-amount");
+    if (amountField.value.trim()) return;
+    const city = document.getElementById("pf-city").value;
+    document.getElementById("pf-price-currency").value = CURRENCY_FOR_CITY[city] || "USD";
+  });
+
   document.getElementById("place-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     if (pendingWikiConfirm) {
@@ -909,6 +956,7 @@ function initPlaceForm() {
     const name = getIdentity();
     if (!name) { openWhoamiModal(); return; }
     const f = fieldRefs();
+    const priceAmountRaw = f.priceAmount.value.trim();
     const payload = {
       name: f.name.value.trim(),
       city: f.city.value,
@@ -916,7 +964,9 @@ function initPlaceForm() {
       notes: f.notes.value.trim(),
       date: f.date.value || "",
       lat: f.lat.value ? parseFloat(f.lat.value) : null,
-      lng: f.lng.value ? parseFloat(f.lng.value) : null
+      lng: f.lng.value ? parseFloat(f.lng.value) : null,
+      priceAmount: priceAmountRaw ? parseFloat(priceAmountRaw) : null,
+      priceCurrency: priceAmountRaw ? f.priceCurrency.value : null
     };
     if (!payload.name) return;
 
@@ -1027,6 +1077,7 @@ function renderList() {
       <div>
         ${place.city ? `<span class="date-pill city-pill">${escapeHtml(cityLabel(place.city))}</span>` : ""}
         <span class="date-pill ${place.date ? "" : "unset"}">${place.date ? formatDate(place.date) : "no date yet"}</span>
+        ${formatPriceUSD(place) ? `<span class="price-pill">${formatPriceUSD(place)}</span>` : ""}
       </div>
       <div class="pc-actions">
         <button class="vote-btn ${hasVoted(place, getIdentity()) ? "voted" : ""}" data-action="vote" data-id="${place.id}">👍 ${voteCount(place)}</button>
@@ -1074,6 +1125,7 @@ function renderItinerary() {
         ${list.map(place => `
           <div class="day-card">
             <div class="dc-name">${cat(place.category).emoji} ${escapeHtml(place.name)}${place.city ? ` <span class="dc-city">· ${escapeHtml(cityLabel(place.city))}</span>` : ""}</div>
+            ${formatPriceUSD(place) ? `<span class="price-pill">${formatPriceUSD(place)}</span>` : ""}
             <div class="dc-votes">👍 ${voteCount(place)} · <a class="edit-link" href="#" data-action="edit" data-id="${place.id}">edit</a></div>
           </div>
         `).join("")}
