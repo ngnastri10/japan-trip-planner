@@ -14,7 +14,7 @@
 <!-- ?v= is a cache-buster: niconastri.com sits behind Cloudflare, which caches
      static files for hours per edge location. Bump this number any time a
      CSS change needs to show up immediately instead of waiting on that. -->
-<link rel="stylesheet" href="css/style.css?v=12">
+<link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body>
 
@@ -86,6 +86,9 @@
         <option value="culture">🎌 Culture / Museum</option>
         <option value="activity">🧭 Activity / Sights</option>
         <option value="other">📍 Other</option>
+      </select>
+      <select id="list-filter-person">
+        <option value="">All people</option>
       </select>
       <select id="list-sort">
         <option value="votes">Sort: most 👍 first</option>
@@ -194,6 +197,6 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/main.js?v=12"></script>
+<script type="module" src="js/main.js?v=13"></script>
 </body>
 </html>

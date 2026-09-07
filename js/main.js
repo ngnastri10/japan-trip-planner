@@ -825,19 +825,37 @@ function initPlaceForm() {
 function initListControls() {
   document.getElementById("list-filter-city").addEventListener("change", renderList);
   document.getElementById("list-filter-category").addEventListener("change", renderList);
+  document.getElementById("list-filter-person").addEventListener("change", renderList);
   document.getElementById("list-sort").addEventListener("change", renderList);
   document.getElementById("list-add-btn").addEventListener("click", () => openPlaceModal({ mode: "add" }));
 }
 
+// "Added by" options aren't a fixed list like cities/categories -- whoever's
+// actually added something shows up here, so this rebuilds from live data
+// every render, keeping the current selection if that person still has places.
+function updatePersonFilterOptions() {
+  const select = document.getElementById("list-filter-person");
+  const current = select.value;
+  const people = new Set();
+  placesById.forEach(p => { if (p.addedBy) people.add(p.addedBy); });
+  const sorted = Array.from(people).sort((a, b) => a.localeCompare(b));
+  select.innerHTML = `<option value="">All people</option>` +
+    sorted.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("");
+  if (sorted.includes(current)) select.value = current;
+}
+
 function renderList() {
+  updatePersonFilterOptions();
   const container = document.getElementById("place-list");
   const cityFilter = document.getElementById("list-filter-city").value;
   const filter = document.getElementById("list-filter-category").value;
+  const personFilter = document.getElementById("list-filter-person").value;
   const sortBy = document.getElementById("list-sort").value;
 
   let items = Array.from(placesById.values());
   if (cityFilter) items = items.filter(p => p.city === cityFilter);
   if (filter) items = items.filter(p => p.category === filter);
+  if (personFilter) items = items.filter(p => p.addedBy === personFilter);
 
   items.sort((a, b) => {
     if (sortBy === "votes") return voteCount(b) - voteCount(a);

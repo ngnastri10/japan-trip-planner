@@ -90,7 +90,7 @@ main { height: calc(100% - 57px); }
   flex-wrap: wrap;
 }
 .search-wrap { position: relative; flex: 1; min-width: 220px; }
-#place-search, #list-filter-category, #list-sort {
+#place-search, #list-filter-city, #list-filter-category, #list-filter-person, #list-sort, #itinerary-filter-city {
   width: 100%;
   padding: 9px 12px;
   border: 1px solid var(--border);
