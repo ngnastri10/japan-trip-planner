@@ -26,6 +26,7 @@ const CATEGORIES = {
   cafe:     { emoji: "☕", label: "Café / Tea",         color: "#8b5e34" },
   bar:      { emoji: "🍸", label: "Bar",               color: "#7c3aed" },
   activity: { emoji: "🧭", label: "Activity / Sights", color: "#0891b2" },
+  hotel:    { emoji: "🏨", label: "Hotel",             color: "#334155" },
   other:    { emoji: "📍", label: "Other",             color: "#6b7280" }
 };
 function cat(key) { return CATEGORIES[key] || CATEGORIES.other; }
