@@ -175,6 +175,10 @@ function initTabs() {
       btn.classList.add("active");
       document.getElementById(`view-${btn.dataset.view}`).classList.add("active");
       if (btn.dataset.view === "map") setTimeout(() => map && map.invalidateSize(), 50);
+      // Same deal as the map above -- the calendar gets built while its tab
+      // is hidden (width 0), so its columns are laid out wrong until it's
+      // told to re-measure once it's actually visible.
+      if (btn.dataset.view === "itinerary") setTimeout(() => calendar && calendar.updateSize(), 50);
     });
   });
 }
@@ -464,6 +468,43 @@ function updateZoneFilterOptions(selectId, cityValue) {
   if (zones.some(z => z.name === current)) select.value = current;
 }
 
+// Same idea as zonesForPoint/updateZoneFilterOptions above, but for the
+// actual (tighter) neighborhood boundaries instead of the looser Day Zones.
+function neighborhoodsForPoint(city, lat, lng) {
+  if (lat == null || lng == null) return [];
+  return NEIGHBORHOODS.filter(n => n.city === city && pointInZoneEntry(lat, lng, n)).map(n => n.name);
+}
+
+function updateNeighborhoodFilterOptions(selectId, cityValue) {
+  const select = document.getElementById(selectId);
+  const current = select.value;
+  if (!cityValue) {
+    select.innerHTML = `<option value="">Pick a city for neighborhoods</option>`;
+    select.value = "";
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  const nbhds = NEIGHBORHOODS.filter(n => n.city === cityValue);
+  select.innerHTML = `<option value="">All neighborhoods</option>` +
+    nbhds.map(n => `<option value="${escapeHtml(n.name)}">${escapeHtml(n.name)}</option>`).join("");
+  if (nbhds.some(n => n.name === current)) select.value = current;
+}
+
+// Switches to the Map tab, pans/zooms to a place, and pops its info bubble
+// open -- used by the "Open in map" link on the itinerary's unscheduled tiles.
+function jumpToPlaceOnMap(place) {
+  if (place.lat == null || place.lng == null) return;
+  document.querySelector('.tab-btn[data-view="map"]').click(); // handles the tab switch + invalidateSize
+  const city = CITIES[place.city];
+  if (city) setBaseTiles(city.tiles);
+  setTimeout(() => {
+    map.invalidateSize();
+    map.setView([place.lat, place.lng], 16);
+    L.popup().setLatLng([place.lat, place.lng]).setContent(buildPopupHTML(place)).openOn(map);
+  }, 80);
+}
+
 function makeDivIcon(category) {
   return L.divIcon({
     html: `<div class="marker-emoji">${cat(category).emoji}</div>`,
@@ -488,18 +529,15 @@ function startApp() {
   initPlaceForm();
   initListControls();
   updateZoneFilterOptions("itinerary-filter-zone", document.getElementById("itinerary-filter-city").value);
-  document.getElementById("itinerary-filter-city").addEventListener("change", () => {
-    updateZoneFilterOptions("itinerary-filter-zone", document.getElementById("itinerary-filter-city").value);
-    renderItinerary();
-  });
-  document.getElementById("itinerary-filter-zone").addEventListener("change", renderItinerary);
+  updateNeighborhoodFilterOptions("itinerary-filter-neighborhood", document.getElementById("itinerary-filter-city").value);
+  initItinerary();
 
   onSnapshot(collection(db, "places"), (snap) => {
     placesById.clear();
     snap.forEach(d => placesById.set(d.id, { id: d.id, ...d.data() }));
     renderMarkers();
     renderList();
-    renderItinerary();
+    renderItineraryCalendar();
   }, (err) => {
     console.error(err);
     showToast("Couldn't load data — check Firestore rules / config.");
@@ -764,6 +802,7 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
     f.category.value = place.category || "other";
     f.notes.value = place.notes || "";
     f.date.value = place.date || "";
+    f.time.value = place.time || "";
     f.lat.value = place.lat ?? "";
     f.lng.value = place.lng ?? "";
     f.priceAmount.value = place.priceAmount ?? "";
@@ -774,6 +813,7 @@ function openPlaceModal({ mode, place = null, lat = null, lng = null, name = "" 
     f.category.value = "other";
     f.notes.value = "";
     f.date.value = "";
+    f.time.value = "";
     f.lat.value = lat ?? "";
     f.lng.value = lng ?? "";
     f.priceAmount.value = "";
@@ -799,6 +839,7 @@ function fieldRefs() {
     category: document.getElementById("pf-category"),
     notes: document.getElementById("pf-notes"),
     date: document.getElementById("pf-date"),
+    time: document.getElementById("pf-time"),
     lat: document.getElementById("pf-lat"),
     lng: document.getElementById("pf-lng"),
     priceAmount: document.getElementById("pf-price-amount"),
@@ -957,12 +998,17 @@ function initPlaceForm() {
     if (!name) { openWhoamiModal(); return; }
     const f = fieldRefs();
     const priceAmountRaw = f.priceAmount.value.trim();
+    // Keep the existing duration on edit (it may have been resized on the
+    // calendar); default a brand-new timed place to 1 hour.
+    const existingPlace = formState.id ? placesById.get(formState.id) : null;
     const payload = {
       name: f.name.value.trim(),
       city: f.city.value,
       category: f.category.value,
       notes: f.notes.value.trim(),
       date: f.date.value || "",
+      time: f.time.value || "",
+      durationMinutes: f.time.value ? ((existingPlace && existingPlace.durationMinutes) || 60) : null,
       lat: f.lat.value ? parseFloat(f.lat.value) : null,
       lng: f.lng.value ? parseFloat(f.lng.value) : null,
       priceAmount: priceAmountRaw ? parseFloat(priceAmountRaw) : null,
@@ -1089,48 +1135,244 @@ function renderList() {
 }
 
 // ---------------------------------------------------------------------------
-// 9. Itinerary view (grouped by proposed date)
+// 9. Itinerary view — a real day-planner calendar (FullCalendar), spanning
+// the whole trip as one scrollable view. Places with a date show up as
+// draggable/resizable blocks; places with no date sit in the "Unscheduled"
+// sidebar and get dragged onto the calendar to pick a day/time.
 // ---------------------------------------------------------------------------
-function renderItinerary() {
-  const board = document.getElementById("itinerary-board");
-  const cityFilter = document.getElementById("itinerary-filter-city").value;
-  const zoneFilter = document.getElementById("itinerary-filter-zone").value;
-  const groups = new Map(); // date ("" = unscheduled) -> [places]
+const TRIP_START = "2026-11-20"; // first day shown on the calendar
+const TRIP_DAYS = 15;            // Nov 20 - Dec 4
+const TRIP_END = "2026-12-05";   // one day past the last real day (validRange end is exclusive)
+let calendar;
 
-  placesById.forEach(place => {
-    if (cityFilter && place.city !== cityFilter) return;
-    if (zoneFilter && !zonesForPoint(place.city, place.lat, place.lng).includes(zoneFilter)) return;
-    const key = place.date || "";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(place);
+// Adds minutes to a "HH:MM" string. Doesn't handle wrapping past midnight --
+// fine here, nothing we're scheduling runs that long.
+function addMinutes(hhmm, minutes) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = h * 60 + m + minutes;
+  const eh = Math.floor(total / 60) % 24;
+  const em = total % 60;
+  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+}
+
+// Saves a place's schedule back to Firestore -- called after a drag, a
+// resize, or dropping an unscheduled item onto the calendar.
+async function savePlaceSchedule(id, { date, time, durationMinutes }) {
+  try {
+    await updateDoc(doc(db, "places", id), { date, time, durationMinutes });
+  } catch (e) {
+    console.error(e);
+    showToast("Couldn't save that change — check your connection.");
+  }
+}
+
+function initItinerary() {
+  calendar = new FullCalendar.Calendar(document.getElementById("itinerary-calendar"), {
+    headerToolbar: { left: "title", center: "", right: "allDaysBtn dayView today prev next" },
+    initialView: "tripView",
+    // A plain "tripView" toolbar button just re-shows whatever date you'd
+    // wandered to in Day view -- this custom one always snaps back to the
+    // actual start of the trip instead, so "All days" really means all days.
+    customButtons: {
+      allDaysBtn: { text: "All days", click: () => calendar.changeView("tripView", TRIP_START) }
+    },
+    views: {
+      // The trip range is clamped (validRange below), so today/prev/next
+      // don't do anything useful here -- just the two view buttons.
+      tripView: {
+        type: "timeGrid", duration: { days: TRIP_DAYS },
+        headerToolbar: { left: "title", center: "", right: "allDaysBtn dayView" }
+      },
+      dayView: { type: "timeGrid", duration: { days: 1 }, buttonText: "Day" }
+    },
+    initialDate: TRIP_START,
+    validRange: { start: TRIP_START, end: TRIP_END }, // can't scroll past the trip into empty days
+    navLinks: true, // click a day's header (in the All-days view) to jump into that day
+    navLinkDayClick: (date) => calendar.changeView("dayView", date),
+    // Keeps the "jump to a day" dropdown in sync no matter how the view
+    // changed (nav link click, day-view's own prev/next, etc).
+    datesSet: (info) => {
+      const picker = document.getElementById("itinerary-day-picker");
+      picker.value = calendar.view.type === "dayView" ? info.startStr.slice(0, 10) : "";
+      // Same header-glitch fix as the tab-switch one below, but this covers
+      // switching between the week/day views themselves (that also needs a
+      // re-measure, not just the initial hidden-tab case).
+      setTimeout(() => calendar.updateSize(), 50);
+    },
+    // Day-of-month on top, weekday abbreviation below it -- a plain text
+    // format like "Tue 24" wraps inconsistently depending on column width,
+    // so build the two-line layout ourselves instead.
+    dayHeaderContent: (arg) => ({
+      html: `<div class="day-header-num">${arg.date.getDate()}</div>`
+          + `<div class="day-header-dow">${arg.date.toLocaleDateString(undefined, { weekday: "short" })}</div>`
+    }),
+    slotMinTime: "07:00:00",
+    slotMaxTime: "24:00:00",
+    height: "auto",
+    nowIndicator: true,
+    editable: true,   // drag to move, drag the bottom edge to resize
+    droppable: true,  // accepts drags from the unscheduled sidebar
+    eventDrop: (info) => {
+      const p = placesById.get(info.event.id);
+      savePlaceSchedule(info.event.id, {
+        date: info.event.startStr.slice(0, 10),
+        time: info.event.startStr.slice(11, 16),
+        durationMinutes: p ? (p.durationMinutes || 60) : 60
+      });
+    },
+    eventResize: (info) => {
+      const minutes = Math.round((info.event.end - info.event.start) / 60000);
+      savePlaceSchedule(info.event.id, {
+        date: info.event.startStr.slice(0, 10),
+        time: info.event.startStr.slice(11, 16),
+        durationMinutes: minutes
+      });
+    },
+    // Drag an event off the calendar entirely (e.g. onto the Unscheduled
+    // sidebar) to pull it back out of the schedule. eventDrop only fires
+    // for a valid drop *inside* the calendar, so this is the one that
+    // catches "let go somewhere else."
+    eventDragStop: (info) => {
+      const rect = document.getElementById("itinerary-calendar").getBoundingClientRect();
+      const { clientX: x, clientY: y } = info.jsEvent;
+      const droppedOutside = x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+      if (droppedOutside) savePlaceSchedule(info.event.id, { date: "", time: "", durationMinutes: null });
+    },
+    drop: (info) => {
+      const id = info.draggedEl.dataset.id;
+      const p = placesById.get(id);
+      savePlaceSchedule(id, {
+        date: info.dateStr.slice(0, 10),
+        time: info.dateStr.slice(11, 16),
+        durationMinutes: (p && p.durationMinutes) || 60
+      });
+    },
+    // Dropping a sidebar item makes FullCalendar auto-add its own temporary
+    // copy of the event (that's what eventReceive hands us). We don't want
+    // it -- renderItineraryCalendar rebuilds the real one from Firestore a
+    // moment later -- so just throw this placeholder copy away, otherwise
+    // it sits there forever and you get the same activity shown twice.
+    eventReceive: (info) => {
+      info.event.remove();
+    },
+    eventClick: (info) => {
+      const p = placesById.get(info.event.id);
+      if (p) openPlaceModal({ mode: "edit", place: p });
+    }
+  });
+  calendar.render();
+
+  // Makes the unscheduled sidebar a source of draggable events. Set up once
+  // on the container -- FullCalendar delegates by itemSelector, so this
+  // keeps working even after the list's HTML gets rebuilt on every render.
+  new FullCalendar.Draggable(document.getElementById("itinerary-unscheduled-list"), {
+    itemSelector: ".unscheduled-item",
+    eventData: (el) => ({ id: el.dataset.id, title: el.dataset.title, duration: "01:00", color: el.dataset.color })
   });
 
-  const dateKeys = Array.from(groups.keys()).filter(k => k).sort();
-  const orderedKeys = groups.has("") ? [...dateKeys, ""] : dateKeys;
+  // Click a sidebar tile (not a link/button inside it) to expand it in
+  // place and show the same detail popup content the map markers use --
+  // not the full add/edit form, just a closer look.
+  document.getElementById("itinerary-unscheduled-list").addEventListener("click", (e) => {
+    const item = e.target.closest(".unscheduled-item");
+    if (!item || e.target.closest("[data-action], a")) return;
+    const detail = item.querySelector(".unscheduled-item-detail");
+    const wasOpen = !detail.classList.contains("hidden");
+    document.querySelectorAll("#itinerary-unscheduled-list .unscheduled-item-detail").forEach(d => d.classList.add("hidden"));
+    if (!wasOpen) {
+      const p = placesById.get(item.dataset.id);
+      if (p) {
+        detail.innerHTML = buildPopupHTML(p);
+        // Here specifically (not on the map's own popups) swap the Google
+        // Maps link for one that jumps to our own Map tab instead, so you
+        // can actually see where this sits relative to everything else.
+        const link = detail.querySelector(".gmaps-link");
+        if (link && p.lat != null && p.lng != null) {
+          link.textContent = "Open in map";
+          link.href = "#";
+          link.addEventListener("click", (ev) => { ev.preventDefault(); jumpToPlaceOnMap(p); });
+        }
+      }
+      detail.classList.remove("hidden");
+    }
+  });
 
-  if (!orderedKeys.length) {
-    const msg = cityFilter
-      ? `No ${escapeHtml(cityLabel(cityFilter))} places yet — add some, or assign that city on existing places.`
-      : "No places yet — add some, then assign dates to build your itinerary.";
-    board.innerHTML = `<p style="color:#8a8579;padding:20px;">${msg}</p>`;
-    return;
+  document.getElementById("itinerary-filter-city").addEventListener("change", () => {
+    const city = document.getElementById("itinerary-filter-city").value;
+    updateZoneFilterOptions("itinerary-filter-zone", city);
+    updateNeighborhoodFilterOptions("itinerary-filter-neighborhood", city);
+    renderItineraryCalendar();
+  });
+  document.getElementById("itinerary-filter-zone").addEventListener("change", renderItineraryCalendar);
+  document.getElementById("itinerary-filter-neighborhood").addEventListener("change", renderItineraryCalendar);
+
+  // Day-picker dropdown, filled with every date of the trip -- picking one
+  // switches the calendar into single-day view on that date.
+  const dayPicker = document.getElementById("itinerary-day-picker");
+  for (let i = 0; i < TRIP_DAYS; i++) {
+    const d = addDaysToDateStr(TRIP_START, i);
+    dayPicker.insertAdjacentHTML("beforeend", `<option value="${d}">${formatDate(d)}</option>`);
   }
+  dayPicker.addEventListener("change", () => {
+    if (dayPicker.value) calendar.changeView("dayView", dayPicker.value);
+    else calendar.changeView("tripView", TRIP_START);
+  });
+}
 
-  board.innerHTML = orderedKeys.map(key => {
-    const list = groups.get(key).slice().sort((a, b) => voteCount(b) - voteCount(a));
-    const heading = key ? formatDate(key) : "Unscheduled";
-    return `
-      <div class="day-column">
-        <h3>${heading}</h3>
-        ${list.map(place => `
-          <div class="day-card">
-            <div class="dc-name">${cat(place.category).emoji} ${escapeHtml(place.name)}${place.city ? ` <span class="dc-city">· ${escapeHtml(cityLabel(place.city))}</span>` : ""}</div>
-            ${formatPriceUSD(place) ? `<span class="price-pill">${formatPriceUSD(place)}</span>` : ""}
-            <div class="dc-votes">👍 ${voteCount(place)} · <a class="edit-link" href="#" data-action="edit" data-id="${place.id}">edit</a></div>
-          </div>
-        `).join("")}
-      </div>`;
-  }).join("");
+// "2026-11-24" + 2 -> "2026-11-26". Plain date-string math, no Date/timezone
+// juggling needed since we only ever add whole days.
+function addDaysToDateStr(dateStr, days) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function renderItineraryCalendar() {
+  const cityFilter = document.getElementById("itinerary-filter-city").value;
+  const zoneFilter = document.getElementById("itinerary-filter-zone").value;
+  const nbhdFilter = document.getElementById("itinerary-filter-neighborhood").value;
+  const scheduled = [];
+  const unscheduled = [];
+
+  // The city/zone/neighborhood filters only narrow down the Unscheduled
+  // list -- once something's on the calendar it stays put no matter what's
+  // picked up top.
+  placesById.forEach(place => {
+    if (!place.date) {
+      if (cityFilter && place.city !== cityFilter) return;
+      if (zoneFilter && !zonesForPoint(place.city, place.lat, place.lng).includes(zoneFilter)) return;
+      if (nbhdFilter && !neighborhoodsForPoint(place.city, place.lat, place.lng).includes(nbhdFilter)) return;
+      unscheduled.push(place);
+    } else {
+      scheduled.push(place);
+    }
+  });
+
+  const events = scheduled.map(p => {
+    const time = p.time || "09:00";
+    const durationMin = p.durationMinutes || 60;
+    return {
+      id: p.id,
+      title: `${cat(p.category).emoji} ${p.name}`,
+      start: `${p.date}T${time}`,
+      end: `${p.date}T${addMinutes(time, durationMin)}`,
+      color: cat(p.category).color
+    };
+  });
+  calendar.removeAllEventSources();
+  calendar.addEventSource(events);
+
+  const list = document.getElementById("itinerary-unscheduled-list");
+  if (!unscheduled.length) {
+    list.innerHTML = `<p style="color:#8a8579;font-size:0.82rem;">Nothing unscheduled.</p>`;
+  } else {
+    list.innerHTML = unscheduled.map(p => `
+      <div class="unscheduled-item" data-id="${p.id}" data-title="${escapeHtml(cat(p.category).emoji + " " + p.name)}" data-color="${cat(p.category).color}">
+        <div class="unscheduled-item-name">${cat(p.category).emoji} ${escapeHtml(p.name)}${p.city ? ` <span style="color:var(--ink-soft);font-size:0.8em;">· ${escapeHtml(cityLabel(p.city))}</span>` : ""}</div>
+        <div class="unscheduled-item-detail hidden"></div>
+      </div>
+    `).join("");
+  }
 }
 
 // ---------------------------------------------------------------------------
