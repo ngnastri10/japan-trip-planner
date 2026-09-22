@@ -510,13 +510,33 @@ function jumpToPlaceOnMap(place) {
 // itinerary event shows details instead of jumping straight to edit.
 function showDetailPopup(place, anchorEl) {
   closeDetailPopup();
-  const rect = anchorEl.getBoundingClientRect();
+  // Lives inside the scrolling calendar area (not document.body), positioned
+  // relative to it -- so it scrolls along with the event it's pointing at
+  // instead of staying glued to one spot on screen.
+  const container = document.querySelector(".itinerary-layout");
+  const containerRect = container.getBoundingClientRect();
+  const anchorRect = anchorEl.getBoundingClientRect();
+  const left = Math.min(anchorRect.right - containerRect.left + container.scrollLeft + 6, container.scrollWidth - 300);
+
   const popup = document.createElement("div");
   popup.id = "itinerary-detail-popup";
-  popup.innerHTML = buildPopupHTML(place);
-  document.body.appendChild(popup);
-  popup.style.top = `${rect.bottom + 6}px`;
-  popup.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+  popup.innerHTML = `<button type="button" class="detail-popup-close">✕</button>` + buildPopupHTML(place);
+  popup.style.left = `${left}px`;
+  container.appendChild(popup);
+
+  // Center the popup on the tile's middle, not its top -- needs the popup's
+  // real height, which we only know now that it's actually in the DOM.
+  const anchorMiddle = anchorRect.top + anchorRect.height / 2 - containerRect.top + container.scrollTop;
+  const naturalTop = anchorMiddle - popup.offsetHeight / 2;
+
+  popup.querySelector(".detail-popup-close").addEventListener("click", closeDetailPopup);
+
+  // Keep it tied to the event as you scroll, but don't let it scroll off
+  // the top -- clamp it to the top of the visible area instead.
+  function reposition() { popup.style.top = `${Math.max(naturalTop, container.scrollTop + 6)}px`; }
+  reposition();
+  container.addEventListener("scroll", reposition);
+  popup._cleanup = () => container.removeEventListener("scroll", reposition);
 
   const link = popup.querySelector(".gmaps-link");
   if (link && place.lat != null && place.lng != null) {
@@ -528,7 +548,10 @@ function showDetailPopup(place, anchorEl) {
 
 function closeDetailPopup() {
   const existing = document.getElementById("itinerary-detail-popup");
-  if (existing) existing.remove();
+  if (existing) {
+    existing._cleanup();
+    existing.remove();
+  }
 }
 
 // Closes the popup on a click anywhere else -- but not on the same click

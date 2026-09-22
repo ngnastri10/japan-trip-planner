@@ -365,6 +365,7 @@ main { height: calc(100% - 57px); }
   padding: 16px;
   overflow: auto;
   align-items: flex-start;
+  position: relative; /* anchors the detail popup -- see #itinerary-detail-popup */
 }
 #itinerary-calendar {
   flex: 1;
@@ -407,15 +408,30 @@ main { height: calc(100% - 57px); }
   cursor: default;
 }
 #itinerary-detail-popup {
-  position: fixed;
+  position: absolute; /* lives inside .itinerary-layout, so it scrolls along
+                          with the event it's anchored to instead of staying
+                          glued to the viewport */
   z-index: 950;
   width: 280px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: var(--shadow);
-  padding: 10px 12px;
+  padding: 10px 30px 10px 12px; /* extra room on the right for the close button */
 }
+.detail-popup-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 3px 5px;
+}
+.detail-popup-close:hover { color: var(--ink); }
 
 /* ---------- Modals ---------- */
 .modal-overlay {
