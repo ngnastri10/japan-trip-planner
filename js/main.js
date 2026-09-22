@@ -505,6 +505,39 @@ function jumpToPlaceOnMap(place) {
   }, 80);
 }
 
+// Small floating detail bubble anchored near a clicked calendar event --
+// same idea (and same content) as the map's own popups, so clicking an
+// itinerary event shows details instead of jumping straight to edit.
+function showDetailPopup(place, anchorEl) {
+  closeDetailPopup();
+  const rect = anchorEl.getBoundingClientRect();
+  const popup = document.createElement("div");
+  popup.id = "itinerary-detail-popup";
+  popup.innerHTML = buildPopupHTML(place);
+  document.body.appendChild(popup);
+  popup.style.top = `${rect.bottom + 6}px`;
+  popup.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+
+  const link = popup.querySelector(".gmaps-link");
+  if (link && place.lat != null && place.lng != null) {
+    link.textContent = "Open in map";
+    link.href = "#";
+    link.addEventListener("click", (e) => { e.preventDefault(); closeDetailPopup(); jumpToPlaceOnMap(place); });
+  }
+}
+
+function closeDetailPopup() {
+  const existing = document.getElementById("itinerary-detail-popup");
+  if (existing) existing.remove();
+}
+
+// Closes the popup on a click anywhere else -- but not on the same click
+// that opened it (that click's target is the calendar event itself).
+document.addEventListener("click", (e) => {
+  const popup = document.getElementById("itinerary-detail-popup");
+  if (popup && !popup.contains(e.target) && !e.target.closest(".fc-event")) closeDetailPopup();
+});
+
 function makeDivIcon(category) {
   return L.divIcon({
     html: `<div class="marker-emoji">${cat(category).emoji}</div>`,
@@ -1257,7 +1290,7 @@ function initItinerary() {
     },
     eventClick: (info) => {
       const p = placesById.get(info.event.id);
-      if (p) openPlaceModal({ mode: "edit", place: p });
+      if (p) showDetailPopup(p, info.el);
     }
   });
   calendar.render();

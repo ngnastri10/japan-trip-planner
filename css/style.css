@@ -406,6 +406,16 @@ main { height: calc(100% - 57px); }
   border-top: 1px solid var(--border);
   cursor: default;
 }
+#itinerary-detail-popup {
+  position: fixed;
+  z-index: 950;
+  width: 280px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+}
 
 /* ---------- Modals ---------- */
 .modal-overlay {
