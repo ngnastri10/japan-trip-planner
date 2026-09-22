@@ -279,10 +279,9 @@ function initMap() {
   markerLayer = L.layerGroup().addTo(map);
   renderMapOverlays();
 
-  // Click empty map => add a place at that spot
-  map.on("click", (e) => {
-    openPlaceModal({ mode: "add", lat: e.latlng.lat, lng: e.latlng.lng });
-  });
+  // (used to open the add-place form on any map click -- removed, it kept
+  // firing by accident while just panning/zooming around. Adding a place
+  // now only happens via search or the + button.)
 
   document.getElementById("fab-add").addEventListener("click", () => {
     openPlaceModal({ mode: "add" });
